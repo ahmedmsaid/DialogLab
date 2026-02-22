@@ -309,14 +309,22 @@ export class AudioPlaybackAdapter {
    */
   static async initiateAudioPlayback(config, options = {}) {
     try {
-      // Check LLM status before starting
       try {
         const statusResp = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LLM_STATUS}`);
         if (statusResp.ok) {
           const status = await statusResp.json();
-          if (!status.geminiConfigured) {
+          const provider = localStorage.getItem('LLM_PROVIDER') || 'gemini';
+          if (provider === 'gemini' && !status.geminiConfigured) {
             alert('Please set your Gemini API key first.');
             return Promise.reject(new Error('Gemini API key not configured'));
+          }
+          if (provider === 'openai' && !status.openaiConfigured) {
+            alert('Please set your OpenAI API key first.');
+            return Promise.reject(new Error('OpenAI API key not configured'));
+          }
+          if (provider === 'openrouter' && !status.openrouterConfigured) {
+            alert('Please set your OpenRouter API key first.');
+            return Promise.reject(new Error('OpenRouter API key not configured'));
           }
         }
       } catch (e) {
@@ -364,9 +372,15 @@ export class AudioPlaybackAdapter {
         }
       }
       
-      // Use the same API endpoint as conversation, but with TalkingHead options
       const provider = localStorage.getItem('LLM_PROVIDER') || 'gemini';
-      const key = provider === 'openai' ? localStorage.getItem('OPENAI_API_KEY') : localStorage.getItem('GEMINI_API_KEY');
+      let key;
+      if (provider === 'openai') {
+        key = localStorage.getItem('OPENAI_API_KEY');
+      } else if (provider === 'openrouter') {
+        key = localStorage.getItem('OPENROUTER_API_KEY');
+      } else {
+        key = localStorage.getItem('GEMINI_API_KEY');
+      }
       return fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.START_CONVERSATION}`, {
         method: 'POST',
         headers: {

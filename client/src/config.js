@@ -30,6 +30,7 @@ export const API_CONFIG = {
     GENERATE_CONVERSATION_PROMPT: '/api/generate-conversation-prompt',
     CONTENT_UPLOAD: '/api/content/upload',
     CONTENT_LIST: '/api/content/list',
+    TTS_VOICES: '/api/tts/voices',
   }
 };
 

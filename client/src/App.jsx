@@ -7,7 +7,7 @@ import './App.css';
 import ApiKeyModal from './components/ApiKeyModal';
 
 function App() {
-  const [missingKeys, setMissingKeys] = useState({ openai: false, gemini: false, tts: false });
+  const [missingKeys, setMissingKeys] = useState({ openai: false, gemini: false, openrouter: false, tts: false });
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [provider, setProvider] = useState('gemini');
 
@@ -18,10 +18,11 @@ function App() {
     const nextMissing = {
       openai: p === 'openai' ? !(localStorage.getItem('OPENAI_API_KEY')) : false,
       gemini: p === 'gemini' ? !(localStorage.getItem('GEMINI_API_KEY')) : false,
+      openrouter: p === 'openrouter' ? !(localStorage.getItem('OPENROUTER_API_KEY')) : false,
       tts: !(localStorage.getItem('TTS_API_KEY')),
     };
     setMissingKeys(nextMissing);
-    setShowKeyModal(nextMissing.openai || nextMissing.gemini || nextMissing.tts);
+    setShowKeyModal(nextMissing.openai || nextMissing.gemini || nextMissing.openrouter || nextMissing.tts);
   };
 
   useEffect(() => {

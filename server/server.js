@@ -1217,6 +1217,9 @@ app.listen(port, () => {
 if (process.env.OPENAI_API_KEY && typeof llmProvider.setOpenAIApiKey === 'function') {
   llmProvider.setOpenAIApiKey(process.env.OPENAI_API_KEY);
 }
+if (process.env.OPENROUTER_API_KEY && typeof llmProvider.setOpenRouterApiKey === 'function') {
+  llmProvider.setOpenRouterApiKey(process.env.OPENROUTER_API_KEY);
+}
 if (process.env.GEMINI_API_KEY) {
   try {
     // Lazy import to avoid circular deps if any

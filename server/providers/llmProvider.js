@@ -1,31 +1,40 @@
 import axios from 'axios';
 import * as geminiAPI from './geminiAPI.js';
 
-// LLM Provider types
 const PROVIDERS = {
   OPENAI: 'openai',
-  GEMINI: 'gemini'
+  GEMINI: 'gemini',
+  OPENROUTER: 'openrouter'
 };
 
-// Model configurations for each provider
 const MODELS = {
   OPENAI: {
-    DEFAULT: 'gpt-4',
+    DEFAULT: 'gpt-5',
     GPT35: 'gpt-3.5-turbo',
     GPT4: 'gpt-4',
-    GPT4_TURBO: 'gpt-4-turbo'
+    GPT4_TURBO: 'gpt-4-turbo',
+    GPT5: 'gpt-5'
   },
-  GEMINI: geminiAPI.GEMINI_MODELS
+  GEMINI: geminiAPI.GEMINI_MODELS,
+  OPENROUTER: {
+    DEFAULT: 'openai/gpt-5.2',
+    GPT4_1: 'openai/gpt-4.1',
+    GPT4_1_MINI: 'openai/gpt-4.1-mini',
+    CLAUDE_3_7_SONNET: 'anthropic/claude-3.7-sonnet',
+    CLAUDE_3_7_HAIKU: 'anthropic/claude-3.7-haiku',
+    MISTRAL_LARGE: 'mistral/mistral-large-latest'
+  }
 };
 
-// Default provider and models
 let currentProvider = PROVIDERS.GEMINI;
 let defaultOpenAIModel = MODELS.OPENAI.DEFAULT;
-let defaultGeminiModel = geminiAPI.GEMINI_MODELS.FLASH;
+let defaultGeminiModel = geminiAPI.GEMINI_MODELS.PRO || geminiAPI.GEMINI_MODELS.FLASH;
+let defaultOpenRouterModel = MODELS.OPENROUTER.DEFAULT;
 
-// API keys (mutable at runtime)
 let openAIApiKey;
 let openAIConfigured = false;
+let openRouterApiKey;
+let openRouterConfigured = false;
 
 /**
  * Set the current LLM provider
@@ -60,6 +69,13 @@ function setDefaultModel(provider, model) {
     } else {
       throw new Error(`Invalid Gemini model: ${model}`);
     }
+  } else if (provider === PROVIDERS.OPENROUTER) {
+    if (Object.values(MODELS.OPENROUTER).includes(model)) {
+      defaultOpenRouterModel = model;
+      console.log(`Default OpenRouter model set to: ${model}`);
+    } else {
+      throw new Error(`Invalid OpenRouter model: ${model}`);
+    }
   } else {
     throw new Error(`Invalid provider: ${provider}`);
   }
@@ -78,7 +94,13 @@ function getProvider() {
  * @returns {object} Available models
  */
 function getAvailableModels() {
-  return currentProvider === PROVIDERS.GEMINI ? MODELS.GEMINI : MODELS.OPENAI;
+  if (currentProvider === PROVIDERS.GEMINI) {
+    return MODELS.GEMINI;
+  }
+  if (currentProvider === PROVIDERS.OPENROUTER) {
+    return MODELS.OPENROUTER;
+  }
+  return MODELS.OPENAI;
 }
 
 /**
@@ -86,7 +108,13 @@ function getAvailableModels() {
  * @returns {string}
  */
 function getCurrentModel() {
-  return currentProvider === PROVIDERS.GEMINI ? defaultGeminiModel : defaultOpenAIModel;
+  if (currentProvider === PROVIDERS.GEMINI) {
+    return defaultGeminiModel;
+  }
+  if (currentProvider === PROVIDERS.OPENROUTER) {
+    return defaultOpenRouterModel;
+  }
+  return defaultOpenAIModel;
 }
 
 /**
@@ -98,14 +126,36 @@ function getCurrentModel() {
 async function generateText(prompt, options = {}) {
   const provider = options.provider || currentProvider;
   if (provider === PROVIDERS.GEMINI) {
-    // Set the default Gemini model if not specified
     const geminiOptions = { ...options };
     if (!geminiOptions.model) {
       geminiOptions.model = defaultGeminiModel;
     }
     return geminiAPI.generateText(prompt, geminiOptions);
+  } else if (provider === PROVIDERS.OPENROUTER) {
+    try {
+      const key = options.apiKey || openRouterApiKey;
+      const response = await axios.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          model: options.model || defaultOpenRouterModel,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: options.maxTokens || 150,
+          temperature: options.temperature || 0.7,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return response.data.choices[0].message.content.trim();
+    } catch (error) {
+      console.error("Error calling OpenRouter API:", error);
+      throw error;
+    }
   } else {
-    // OpenAI
     try {
       const key = options.apiKey || openAIApiKey;
       const response = await axios.post(
@@ -141,15 +191,36 @@ async function generateText(prompt, options = {}) {
 async function chatCompletion(messages, options = {}) {
   const provider = options.provider || currentProvider;
   if (provider === PROVIDERS.GEMINI) {
-    
-    // Set the default Gemini model if not specified
     const geminiOptions = { ...options };
     if (!geminiOptions.model) {
       geminiOptions.model = defaultGeminiModel;
     }
     return geminiAPI.chatCompletion(messages, geminiOptions);
+  } else if (provider === PROVIDERS.OPENROUTER) {
+    try {
+      const key = options.apiKey || openRouterApiKey;
+      const response = await axios.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          model: options.model || defaultOpenRouterModel,
+          messages: messages,
+          max_tokens: options.maxTokens || 150,
+          temperature: options.temperature || 0.7,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return response.data.choices[0].message.content.trim();
+    } catch (error) {
+      console.error("Error calling OpenRouter API:", error);
+      throw error;
+    }
   } else {
-    // OpenAI
     try {
       const key = options.apiKey || openAIApiKey;
       const response = await axios.post(
@@ -203,6 +274,15 @@ export function setOpenAIApiKey(apiKey) {
  */
 export function isOpenAIConfigured() {
   return openAIConfigured;
+}
+
+export function setOpenRouterApiKey(apiKey) {
+  openRouterApiKey = apiKey;
+  openRouterConfigured = Boolean(apiKey && String(apiKey).trim().length > 0);
+}
+
+export function isOpenRouterConfigured() {
+  return openRouterConfigured;
 }
 
 

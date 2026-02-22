@@ -10,11 +10,11 @@ let genAI = null;
 
 const GEMINI_MODELS = {          
   FLASH_LITE: "gemini-2.0-flash-lite",
-  FLASH: "gemini-2.0-flash",
+  FLASH: "gemini-2.5-flash",
+  PRO: "gemini-2.5-pro",
 };
 
-// Default model
-const DEFAULT_MODEL = GEMINI_MODELS.FLASH;
+const DEFAULT_MODEL = GEMINI_MODELS.PRO;
 
 /**
  * Gets the appropriate Gemini model
@@ -28,11 +28,11 @@ function getModel(modelName = DEFAULT_MODEL) {
     }
     return genAI.getGenerativeModel({ model: modelName });
   } catch (error) {
-    console.error(`Error getting model ${modelName}, falling back to legacy model:`, error);
+    console.error(`Error getting model ${modelName}, falling back to flash model:`, error);
     if (!genAI) {
       throw error;
     }
-    return genAI.getGenerativeModel({ model: GEMINI_MODELS.LEGACY_PRO });
+    return genAI.getGenerativeModel({ model: GEMINI_MODELS.FLASH });
   }
 }
 

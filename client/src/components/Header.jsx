@@ -24,15 +24,15 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
   // Identify the provider from the model name
   const getProviderForModel = (modelName) => {
     if (!modelName) return currentProvider;
-    // Check if it's a Gemini model
+    if (currentProvider === 'openrouter') {
+      return 'openrouter';
+    }
     if (modelName.includes('gemini') || modelName.includes('flash') || modelName.includes('pro')) {
       return 'gemini';
     }
-    // Check if it's an OpenAI model
     if (modelName.includes('gpt') || modelName.includes('openai')) {
       return 'openai';
     }
-    // Default to current provider
     return currentProvider;
   };
 
@@ -102,9 +102,13 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
   const getDisplayModelName = (modelName) => {
     if (!modelName) return 'Select Model';
     
-    // Determine provider for prefixing
     const provider = getProviderForModel(modelName);
-    const prefix = provider === 'gemini' ? '🌀 ' : '🔄 ';
+    let prefix = '🔄 ';
+    if (provider === 'gemini') {
+      prefix = '🌀 ';
+    } else if (provider === 'openrouter') {
+      prefix = '🌐 ';
+    }
     
     // Return the full model name with appropriate prefix
     return `${prefix}${modelName}`;
@@ -261,7 +265,11 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
             {showModelDropdown && (
               <div className="absolute top-full right-0 w-[250px] bg-white border border-gray-200 rounded-md shadow-lg z-[1000] mt-1 overflow-hidden">
                 <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-200 font-medium">
-                  {currentProvider === 'gemini' ? 'Gemini Models' : 'OpenAI Models'}
+                  {currentProvider === 'gemini'
+                    ? 'Gemini Models'
+                    : currentProvider === 'openrouter'
+                      ? 'OpenRouter Models'
+                      : 'OpenAI Models'}
                 </div>
                 {providerModels.map((model) => (
                   <div 

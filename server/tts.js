@@ -3,64 +3,104 @@ import fs from "fs";
 import { exec } from "child_process";
 import os from "os";
 import dotenv from "dotenv";
+import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
-import { v4 as uuidv4 } from 'uuid';
-// Load environment variables
 dotenv.config();
 
-let currentTtsApiKey = process.env.TTS_API_KEY || '';
+let currentTtsApiKey = process.env.TTS_API_KEY || "";
 
-// Create custom TTS client that uses the API key with axios directly
+const FASTAPI_TTS_URL =
+  process.env.FASTAPI_TTS_URL || "http://localhost:8001/tts/synthesize";
+
+function mapVoiceToKokoro(voice = {}) {
+  const rawName = voice.name || "";
+  const rawLang = voice.languageCode || "";
+  const name = String(rawName).toLowerCase();
+  const languageCode = String(rawLang).toLowerCase();
+
+  const explicitMap = {
+    "en-gb-standard-a": "bf_emma",
+    "en-gb-standard-b": "bm_george",
+    "en-gb-standard-d": "bm_fable",
+    "en-us-standard-b": "am_michael",
+    "en-us-standard-c": "af_bella",
+    "en-us-neural2-f": "af_bella",
+  };
+
+  if (explicitMap[name]) {
+    return explicitMap[name];
+  }
+
+  if (/^(af|am|bf|bm)_/.test(name)) {
+    return name;
+  }
+
+  if (languageCode.startsWith("en-gb") || name.includes("en-gb")) {
+    if (name.endsWith("-f")) return "bf_emma";
+    if (name.endsWith("-m")) return "bm_george";
+    return "bf_emma";
+  }
+
+  if (languageCode.startsWith("en") || name.includes("en-us")) {
+    if (name.endsWith("-f")) return "af_bella";
+    if (name.endsWith("-m")) return "am_michael";
+    return "af_bella";
+  }
+
+  return "af_heart";
+}
+
 const client = {
   synthesizeSpeech: async (request) => {
-    try {
-      console.log(`[${new Date().toISOString()}] TTS: Making direct API call with API key`);
-      
-      // Transform the request format if needed
-      const apiRequest = {
-        input: request.input,
-        voice: request.voice,
-        audioConfig: request.audioConfig
-      };
-      
-      // Make a direct API call using axios
-      const response = await axios.post(
-        process.env.TTS_ENDPOINT || "https://texttospeech.googleapis.com/v1/text:synthesize", 
-        apiRequest, 
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": request.apiKey || currentTtsApiKey
-          }
-        }
-      );
+    const input = request.input || {};
+    const voice = request.voice || {};
+    const audioConfig = request.audioConfig || {};
+    const text = input.text || input.ssml || "";
 
-      console.log(`[${new Date().toISOString()}] TTS: Received response from API`);
-      
-      // Transform the response to match the format expected by the calling code
-      let audioContent;
-      
-      if (response.data.audioContent) {
-        // Convert base64 string to Buffer
-        audioContent = Buffer.from(response.data.audioContent, 'base64');
-        console.log(`[${new Date().toISOString()}] TTS: Audio content received and converted (${audioContent.length} bytes)`);
-      } else {
-        throw new Error("No audio content in response");
-      }
-      
-      return [{ audioContent }];
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] TTS API Error:`, error.message);
-      if (error.response) {
-        console.error(`Response status: ${error.response.status}`);
-        console.error(`Response data:`, error.response.data);
-      }
-      throw error;
+    if (!text) {
+      throw new Error("No text provided for TTS");
     }
-  }
+
+    const kokoroVoice = mapVoiceToKokoro(voice);
+
+    const rawRate = audioConfig.speakingRate;
+    const rawPitch = audioConfig.pitch;
+    let speakingRate = Number(rawRate);
+    if (!Number.isFinite(speakingRate) || speakingRate <= 0) {
+      speakingRate = 1;
+    }
+    let speed = speakingRate;
+    const pitch = Number(rawPitch);
+    if (Number.isFinite(pitch) && pitch !== 0) {
+      speed *= 1 + pitch / 20;
+    }
+    speed = Math.max(0.5, Math.min(2, speed));
+
+    const payload = {
+      text,
+      voice: kokoroVoice,
+      speed,
+    };
+
+    const response = await axios.post(FASTAPI_TTS_URL, payload, {
+      timeout: 120000,
+    });
+
+    if (
+      !response.data ||
+      typeof response.data.audio_wav_base64 !== "string"
+    ) {
+      throw new Error("Invalid response from FastAPI TTS service");
+    }
+
+    const audioBuffer = Buffer.from(response.data.audio_wav_base64, "base64");
+    return [{ audioContent: audioBuffer }];
+  },
 };
 
-console.log(`[${new Date().toISOString()}] TTS: Configured with API key for endpoint: ${process.env.TTS_ENDPOINT || "default Google TTS endpoint"}`);
+console.log(
+  `[${new Date().toISOString()}] TTS: Using FastAPI Kokoro service at ${FASTAPI_TTS_URL}`,
+);
 
 // Helper function to ensure directory exists
 const ensureDirectoryExistence = (filePath) => {
@@ -90,6 +130,29 @@ function determineRhubarbPath() {
  * @param {number} port - Server port number
  */
 export const setupTTSRoutes = (app, port) => {
+  app.get("/api/tts/voices", async (req, res) => {
+    try {
+      // Static list of Kokoro voices supported by the model
+      const voices = [
+        { id: "af_heart", name: "Heart (F)", languageCode: "en-US" },
+        { id: "af_bella", name: "Bella (F)", languageCode: "en-US" },
+        { id: "af_nicole", name: "Nicole (F)", languageCode: "en-US" },
+        { id: "af_sarah", name: "Sarah (F)", languageCode: "en-US" },
+        { id: "af_sky", name: "Sky (F)", languageCode: "en-US" },
+        { id: "am_adam", name: "Adam (M)", languageCode: "en-US" },
+        { id: "am_michael", name: "Michael (M)", languageCode: "en-US" },
+        { id: "bf_emma", name: "Emma (F)", languageCode: "en-GB" },
+        { id: "bf_isabella", name: "Isabella (F)", languageCode: "en-GB" },
+        { id: "bm_george", name: "George (M)", languageCode: "en-GB" },
+        { id: "bm_lewis", name: "Lewis (M)", languageCode: "en-GB" },
+      ];
+      res.json({ voices });
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] TTS: Error listing voices`, error);
+      res.status(500).json({ error: "Failed to list voices" });
+    }
+  });
+
   // Batch TTS processing endpoint
   app.post("/api/batch-synthesize", async (req, res) => {
     try {
@@ -140,8 +203,7 @@ export const setupTTSRoutes = (app, port) => {
         }
         
         try {
-          // Generate speech for this segment
-          console.log(`[${new Date().toISOString()}] Batch TTS: Calling Google TTS API for segment ${segmentId}`);
+          console.log(`[${new Date().toISOString()}] Batch TTS: Calling TTS engine for segment ${segmentId}`);
           const startTime = Date.now();
           
           const [response] = await client.synthesizeSpeech({
@@ -158,10 +220,10 @@ export const setupTTSRoutes = (app, port) => {
           });
           
           const apiDuration = Date.now() - startTime;
-          console.log(`[${new Date().toISOString()}] Batch TTS: TTS API response received for segment ${segmentId} (took ${apiDuration}ms)`);
+          console.log(`[${new Date().toISOString()}] Batch TTS: TTS engine response received for segment ${segmentId} (took ${apiDuration}ms)`);
           
           // Create a unique filename for this segment
-          const fileName = `segment-${segmentId.replace(/[^\w\-\.]/g, '_')}-${uuidv4()}.mp3`;
+          const fileName = `segment-${segmentId.replace(/[^\w\-\.]/g, '_')}-${uuidv4()}.wav`;
           const filePath = path.join(process.cwd(), "audio", fileName);
           ensureDirectoryExistence(filePath);
 
@@ -313,5 +375,5 @@ export function setTtsApiKey(apiKey) {
 }
 
 export function isTtsConfigured() {
-  return Boolean(currentTtsApiKey && String(currentTtsApiKey).trim().length > 0);
+  return true;
 }

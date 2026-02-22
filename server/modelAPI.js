@@ -93,6 +93,10 @@ export function setupModelRoutes(app) {
         }
       } else if (provider === 'gemini') {
         setGeminiApiKey(apiKey);
+      } else if (provider === 'openrouter') {
+        if (typeof llmProvider.setOpenRouterApiKey === 'function') {
+          llmProvider.setOpenRouterApiKey(apiKey);
+        }
       } else if (provider === 'tts') {
         setTtsApiKey(apiKey);
       } else {
@@ -118,6 +122,7 @@ export function setupModelRoutes(app) {
         status: 'success',
         geminiConfigured: isGeminiConfigured(),
         openaiConfigured: typeof llmProvider.isOpenAIConfigured === 'function' ? llmProvider.isOpenAIConfigured() : false,
+        openrouterConfigured: typeof llmProvider.isOpenRouterConfigured === 'function' ? llmProvider.isOpenRouterConfigured() : false,
         ttsConfigured: isTtsConfigured(),
         currentProvider: typeof llmProvider.getProvider === 'function' ? llmProvider.getProvider() : 'gemini'
       });
@@ -134,8 +139,8 @@ export function setupModelRoutes(app) {
   app.post("/api/llm-provider", (req, res) => {
     try {
       const { provider } = req.body || {};
-      if (!provider || !['openai', 'gemini'].includes(provider)) {
-        return res.status(400).json({ status: 'error', message: 'provider must be "openai" or "gemini"' });
+      if (!provider || !['openai', 'gemini', 'openrouter'].includes(provider)) {
+        return res.status(400).json({ status: 'error', message: 'provider must be "openai", "gemini", or "openrouter"' });
       }
       if (typeof llmProvider.setProvider === 'function') {
         llmProvider.setProvider(provider);

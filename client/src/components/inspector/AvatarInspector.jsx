@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import useEditorStore from './store';
 import { avatarTemplates } from '../topic/avatarTemplates';
+import { API_CONFIG } from '../../config';
 
 const voiceMapByGender = {
   male: [
@@ -44,6 +45,9 @@ const fillerWordsFrequencyOptions = [
 
 function AvatarInspector({ avatar }) {
   const { selectedItem, updateSelectedItem } = useEditorStore();
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
+  const [voicesError, setVoicesError] = useState('');
 
   // Add state for collapsible sections
   const [activeTab, setActiveTab] = useState('basic');
@@ -71,6 +75,41 @@ function AvatarInspector({ avatar }) {
   }
 
   const avatarGender = avatar.avatarConfig.gender || 'male';
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadVoices = async () => {
+      setIsLoadingVoices(true);
+      setVoicesError('');
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TTS_VOICES}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const voices = Array.isArray(data.voices) ? data.voices : [];
+        if (!isCancelled) {
+          setAvailableVoices(voices);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Failed to load TTS voices:', error);
+          setVoicesError('Failed to load voices, using defaults');
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingVoices(false);
+        }
+      }
+    };
+
+    loadVoices();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   // Modify the useEffect hook that loads configurations
   useEffect(() => {
@@ -1066,6 +1105,20 @@ function AvatarInspector({ avatar }) {
             <option value="en-GB-Standard-D">British Voice (M2)</option>
             <option value="en-US-Standard-B">American Voice (M)</option>
             <option value="en-US-Standard-C">American Voice (F)</option>
+            {availableVoices && availableVoices.length > 0 && (
+              <>
+                <option disabled>──────── Kokoro Voices ────────</option>
+                {availableVoices.map((v, index) => {
+                  const id = v.id || v.name || v.voice || `voice-${index}`;
+                  const label = v.name || v.id || id;
+                  return (
+                    <option key={id} value={id}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </>
+            )}
           </select>
           <div className="mt-2">
             <button 

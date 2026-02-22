@@ -1037,13 +1037,21 @@ const NodeEditor: React.FC<{
 
       console.log("Sending config to server:", config);
 
-      // Block start if Gemini key missing
       try {
         const statusResp = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LLM_STATUS}`);
         if (statusResp.ok) {
           const status = await statusResp.json();
-          if (!status.geminiConfigured) {
+          const provider = localStorage.getItem('LLM_PROVIDER') || 'gemini';
+          if (provider === 'gemini' && !status.geminiConfigured) {
             alert('Please set your Gemini API key first.');
+            return;
+          }
+          if (provider === 'openai' && !status.openaiConfigured) {
+            alert('Please set your OpenAI API key first.');
+            return;
+          }
+          if (provider === 'openrouter' && !status.openrouterConfigured) {
+            alert('Please set your OpenRouter API key first.');
             return;
           }
         }
@@ -1052,7 +1060,14 @@ const NodeEditor: React.FC<{
       }
       
       const provider = localStorage.getItem('LLM_PROVIDER') || 'gemini';
-      const key = provider === 'openai' ? localStorage.getItem('OPENAI_API_KEY') : localStorage.getItem('GEMINI_API_KEY');
+      let key;
+      if (provider === 'openai') {
+        key = localStorage.getItem('OPENAI_API_KEY');
+      } else if (provider === 'openrouter') {
+        key = localStorage.getItem('OPENROUTER_API_KEY');
+      } else {
+        key = localStorage.getItem('GEMINI_API_KEY');
+      }
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.START_CONVERSATION}`, {
         method: 'POST',
         headers: {
