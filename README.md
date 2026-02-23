@@ -10,6 +10,7 @@
 
 - **Visual Conversation Design**: Configure multi-agent conversations with an intuitive node-based editor
 - **3D Avatar Integration**: Animate conversations using Ready Player Me avatars with synchronized speech
+- **Local Neural TTS**: High-quality, low-latency speech synthesis using Kokoro-82M
 - **Multiple LLM Support**: Compatible with OpenAI GPT and Google Gemini models
 - **Scene Management**: Create and manage multiple conversation scenarios
 - **Real-time Preview**: Test and iterate on conversations in real-time
@@ -20,6 +21,7 @@
 
 - **Node.js** 18+ (Node 23 recommended for build and deploy scripts)
 - **npm** 8+
+- **Python** 3.10+ (for local TTS service)
 
 ## Repository Structure
 
@@ -35,7 +37,7 @@ DialogLab/
 
 ## Getting Started
 
-### 1. Install Dependencies
+### 1. Install Node.js Dependencies
 
 ```bash
 # Install client dependencies
@@ -47,13 +49,38 @@ cd ../server
 npm install
 ```
 
-### 2. Configure Environment Variables
+### 2. Set Up Python TTS Service
+
+The project now uses a local Python service for high-quality text-to-speech with Kokoro-82M.
+
+```bash
+# Navigate to project root
+cd ..
+
+# Create and activate virtual environment
+# Windows:
+python -m venv venv
+.\venv\Scripts\activate
+
+# Linux/Mac:
+# python3 -m venv venv
+# source venv/bin/activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Download the Kokoro-82M model and voices
+python download_model.py
+```
+
+### 3. Configure Environment Variables
 
 Create a `.env` file in the `server/` directory with your API keys:
 
 ```env
 # Core Configuration
 NODE_ENV=development
+PORT=3010
 
 # LLM Providers (configure at least one)
 GEMINI_API_KEY=your-gemini-api-key-here
@@ -64,31 +91,39 @@ DEFAULT_LLM_PROVIDER=gemini   # or openai
 DEFAULT_OPENAI_MODEL=gpt-4
 DEFAULT_GEMINI_MODEL=gemini-2.0-flash
 
-# Text-to-Speech (optional - for avatar speech synthesis)
+# Local TTS Service (default)
+FASTAPI_TTS_URL=http://localhost:8001/tts/synthesize
+
+# Google TTS (legacy/optional fallback)
 TTS_API_KEY=your-google-tts-api-key-here
 TTS_ENDPOINT=https://eu-texttospeech.googleapis.com/v1beta1/text:synthesize
 ```
 
 **Note**: You need at least one LLM provider API key (OpenAI or Gemini) to run conversations.
 
-### 3. Start the Server
+### 4. Start the Application
 
+You will need to run three separate processes in different terminals.
+
+**Terminal 1: Python TTS Service**
+```bash
+# Ensure venv is activated
+python python_kokoro_tts_service.py
+```
+The TTS service will start at `http://localhost:8001`.
+
+**Terminal 2: Node.js Server**
 ```bash
 cd server
 node server.js
 ```
+The server will start at `http://localhost:3010`.
 
-The server will start at `http://localhost:3010`. You should see a message confirming the server is running.
-
-### 4. Start the Client
-
-In a separate terminal:
-
+**Terminal 3: React Client**
 ```bash
 cd client
 npm run dev
 ```
-
 Open your browser and navigate to `http://localhost:5173`.
 
 ## Third-Party Components & Licenses

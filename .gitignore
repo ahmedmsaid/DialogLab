@@ -6,7 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
+kokoro-model
 node_modules
 dist
 dist-ssr
@@ -28,6 +28,8 @@ venv
 langchain-version/*
 server/audio/*
 
+client/node_modules
+server/node_modules
 server/content/*
 server/static-content/*
 ecosystem.config.js
