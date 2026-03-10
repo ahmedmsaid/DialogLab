@@ -1,34 +1,37 @@
-import axios from 'axios';
-import * as geminiAPI from './geminiAPI.js';
+import axios from "axios";
+import * as geminiAPI from "./geminiAPI.js";
 
 const PROVIDERS = {
-  OPENAI: 'openai',
-  GEMINI: 'gemini',
-  OPENROUTER: 'openrouter'
+  OPENAI: "openai",
+  GEMINI: "gemini",
+  OPENROUTER: "openrouter",
 };
 
 const MODELS = {
   OPENAI: {
-    DEFAULT: 'gpt-5',
-    GPT35: 'gpt-3.5-turbo',
-    GPT4: 'gpt-4',
-    GPT4_TURBO: 'gpt-4-turbo',
-    GPT5: 'gpt-5'
+    DEFAULT: "gpt-5",
+    GPT35: "gpt-3.5-turbo",
+    GPT4: "gpt-4",
+    GPT4_TURBO: "gpt-4-turbo",
+    GPT5: "gpt-5",
   },
   GEMINI: geminiAPI.GEMINI_MODELS,
   OPENROUTER: {
-    DEFAULT: 'openai/gpt-5.2',
-    GPT4_1: 'openai/gpt-4.1',
-    GPT4_1_MINI: 'openai/gpt-4.1-mini',
-    CLAUDE_3_7_SONNET: 'anthropic/claude-3.7-sonnet',
-    CLAUDE_3_7_HAIKU: 'anthropic/claude-3.7-haiku',
-    MISTRAL_LARGE: 'mistral/mistral-large-latest'
-  }
+    DEFAULT: "nousresearch/hermes-3-llama-3.1-405b:free",
+    GPT4_1: "openai/gpt-4.1",
+    GPT4_1_MINI: "openai/gpt-4.1-mini",
+    CLAUDE_3_7_SONNET: "anthropic/claude-3.7-sonnet",
+    CLAUDE_3_7_HAIKU: "anthropic/claude-3.7-haiku",
+    LLAMA_3_3_70B_FREE: "meta-llama/llama-3.3-70b-instruct:free",
+    QWEN_VL_PLUS_FREE: "qwen/qwen-vl-plus:free",
+    GLM_4_5_Air: "z-ai/glm-4.5-air:free",
+  },
 };
 
 let currentProvider = PROVIDERS.GEMINI;
 let defaultOpenAIModel = MODELS.OPENAI.DEFAULT;
-let defaultGeminiModel = geminiAPI.GEMINI_MODELS.PRO || geminiAPI.GEMINI_MODELS.FLASH;
+let defaultGeminiModel =
+  geminiAPI.GEMINI_MODELS.PRO || geminiAPI.GEMINI_MODELS.FLASH;
 let defaultOpenRouterModel = MODELS.OPENROUTER.DEFAULT;
 
 let openAIApiKey;
@@ -45,7 +48,9 @@ function setProvider(provider) {
     currentProvider = provider;
     console.log(`LLM Provider set to: ${provider}`);
   } else {
-    throw new Error(`Invalid provider: ${provider}. Valid options are: ${Object.values(PROVIDERS).join(', ')}`);
+    throw new Error(
+      `Invalid provider: ${provider}. Valid options are: ${Object.values(PROVIDERS).join(", ")}`,
+    );
   }
 }
 
@@ -147,7 +152,7 @@ async function generateText(prompt, options = {}) {
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       return response.data.choices[0].message.content.trim();
@@ -171,7 +176,7 @@ async function generateText(prompt, options = {}) {
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       return response.data.choices[0].message.content.trim();
@@ -212,7 +217,7 @@ async function chatCompletion(messages, options = {}) {
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       return response.data.choices[0].message.content.trim();
@@ -236,7 +241,7 @@ async function chatCompletion(messages, options = {}) {
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       return response.data.choices[0].message.content.trim();
@@ -247,17 +252,17 @@ async function chatCompletion(messages, options = {}) {
   }
 }
 
-export { 
-  PROVIDERS, 
+export {
+  PROVIDERS,
   MODELS,
-  setProvider, 
+  setProvider,
   getProvider,
   setDefaultModel,
   getAvailableModels,
   getCurrentModel,
-  generateText, 
-  chatCompletion 
-}; 
+  generateText,
+  chatCompletion,
+};
 
 /**
  * Set the OpenAI API key at runtime
@@ -284,5 +289,3 @@ export function setOpenRouterApiKey(apiKey) {
 export function isOpenRouterConfigured() {
   return openRouterConfigured;
 }
-
-

@@ -1,0 +1,12 @@
+{
+  "name": "dialog-lab",
+  "version": "1.0.0",
+  "description": "DialogLab monorepo orchestrator",
+  "type": "module",
+  "scripts": {
+    "tts": ".\\venv\\Scripts\\python.exe python_kokoro_tts_service.py",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "dev": "npx concurrently --kill-others --names \"TTS,SRV,CLN\" --prefix-colors \"yellow,green,cyan\" \"npm run tts\" \"npm run server\" \"npm run client\""
+  }
+}

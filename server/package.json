@@ -19,6 +19,7 @@
   "license": "ISC",
   "type": "module",
   "scripts": {
+    "dev": "node server.js",
     "test": "node test.js",
     "test-content": "node testcontent.js"
   },
