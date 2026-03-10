@@ -5,6 +5,7 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
   const [openaiKey, setOpenaiKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [openrouterKey, setOpenrouterKey] = useState('');
+  const [groqKey, setGroqKey] = useState('');
   const [ttsKey, setTtsKey] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -14,6 +15,7 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
     if (provider === 'openai') localStorage.setItem('OPENAI_API_KEY', cleaned);
     if (provider === 'gemini') localStorage.setItem('GEMINI_API_KEY', cleaned);
     if (provider === 'openrouter') localStorage.setItem('OPENROUTER_API_KEY', cleaned);
+    if (provider === 'groq') localStorage.setItem('GROQ_API_KEY', cleaned);
     if (provider === 'tts') localStorage.setItem('TTS_API_KEY', cleaned);
   };
 
@@ -52,6 +54,10 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
         tasks.push(saveToServer('openrouter', openrouterKey));
         tasks.push(Promise.resolve(saveLocal('openrouter', openrouterKey)));
       }
+      if (provider === 'groq' && groqKey) {
+        tasks.push(saveToServer('groq', groqKey));
+        tasks.push(Promise.resolve(saveLocal('groq', groqKey)));
+      }
       if (ttsKey) {
         tasks.push(saveToServer('tts', ttsKey));
         tasks.push(Promise.resolve(saveLocal('tts', ttsKey)));
@@ -62,7 +68,8 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
       const hasProviderKey =
         (provider === 'openai' && openaiKey) ||
         (provider === 'gemini' && geminiKey) ||
-        (provider === 'openrouter' && openrouterKey);
+        (provider === 'openrouter' && openrouterKey) ||
+        (provider === 'groq' && groqKey);
 
       if (provider && hasProviderKey) {
         try {
@@ -76,7 +83,7 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
           // Notify the app that provider changed so dropdown can refresh immediately
           try {
             window.dispatchEvent(new CustomEvent('llm-provider-changed', { detail: { provider } }));
-          } catch {}
+          } catch { /* empty */ }
         } catch (error) {
           console.error('Failed to set provider:', error);
         }
@@ -95,10 +102,12 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
     const storedOpenAI = localStorage.getItem('OPENAI_API_KEY') || '';
     const storedGemini = localStorage.getItem('GEMINI_API_KEY') || '';
     const storedOpenRouter = localStorage.getItem('OPENROUTER_API_KEY') || '';
+    const storedGroq = localStorage.getItem('GROQ_API_KEY') || '';
     const storedTts = localStorage.getItem('TTS_API_KEY') || '';
     setOpenaiKey(storedOpenAI);
     setGeminiKey(storedGemini);
     setOpenrouterKey(storedOpenRouter);
+    setGroqKey(storedGroq);
     setTtsKey(storedTts);
   }, [provider]);
 
@@ -123,6 +132,10 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
               className={`px-3 py-1.5 rounded-md border ${provider === 'openrouter' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
               onClick={() => onSelectProvider?.('openrouter')}
             >OpenRouter</button>
+            <button
+              className={`px-3 py-1.5 rounded-md border ${provider === 'groq' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+              onClick={() => onSelectProvider?.('groq')}
+            >Groq</button>
           </div>
         </div>
 
@@ -143,6 +156,12 @@ const ApiKeyModal = ({ missing, provider = 'gemini', onSelectProvider, onClose, 
             <div>
               <label className="block text-xs text-gray-600 mb-1">OpenRouter API Key</label>
               <input type="password" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="sk-or-..." value={openrouterKey} onChange={e => setOpenrouterKey(e.target.value)} />
+            </div>
+          )}
+          {provider === 'groq' && (
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Groq API Key</label>
+              <input type="password" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="gsk_..." value={groqKey} onChange={e => setGroqKey(e.target.value)} />
             </div>
           )}
           <div>

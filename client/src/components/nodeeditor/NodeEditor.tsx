@@ -1054,6 +1054,10 @@ const NodeEditor: React.FC<{
             alert('Please set your OpenRouter API key first.');
             return;
           }
+          if (provider === 'groq' && !status.groqConfigured) {
+            alert('Please set your Groq API key first.');
+            return;
+          }
         }
       } catch (e) {
         console.warn('Could not verify LLM status before node start:', e);
@@ -1065,6 +1069,8 @@ const NodeEditor: React.FC<{
         key = localStorage.getItem('OPENAI_API_KEY');
       } else if (provider === 'openrouter') {
         key = localStorage.getItem('OPENROUTER_API_KEY');
+      } else if (provider === 'groq') {
+        key = localStorage.getItem('GROQ_API_KEY');
       } else {
         key = localStorage.getItem('GEMINI_API_KEY');
       }

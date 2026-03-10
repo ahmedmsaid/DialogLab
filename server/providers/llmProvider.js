@@ -5,6 +5,7 @@ const PROVIDERS = {
   OPENAI: "openai",
   GEMINI: "gemini",
   OPENROUTER: "openrouter",
+  GROQ: "groq",
 };
 
 const MODELS = {
@@ -26,6 +27,12 @@ const MODELS = {
     QWEN_VL_PLUS_FREE: "qwen/qwen-vl-plus:free",
     GLM_4_5_Air: "z-ai/glm-4.5-air:free",
   },
+  GROQ: {
+    DEFAULT: "llama-3.3-70b-versatile",
+    LLAMA_3_3_70B: "llama-3.3-70b-versatile",
+    LLAMA_3_1_8B: "llama-3.1-8b-instant",
+    MIXTRAL_8X7B: "mixtral-8x7b-32768",
+  },
 };
 
 let currentProvider = PROVIDERS.GEMINI;
@@ -33,11 +40,14 @@ let defaultOpenAIModel = MODELS.OPENAI.DEFAULT;
 let defaultGeminiModel =
   geminiAPI.GEMINI_MODELS.PRO || geminiAPI.GEMINI_MODELS.FLASH;
 let defaultOpenRouterModel = MODELS.OPENROUTER.DEFAULT;
+let defaultGroqModel = MODELS.GROQ.DEFAULT;
 
 let openAIApiKey;
 let openAIConfigured = false;
 let openRouterApiKey;
 let openRouterConfigured = false;
+let groqApiKey;
+let groqConfigured = false;
 
 /**
  * Set the current LLM provider
@@ -81,6 +91,13 @@ function setDefaultModel(provider, model) {
     } else {
       throw new Error(`Invalid OpenRouter model: ${model}`);
     }
+  } else if (provider === PROVIDERS.GROQ) {
+    if (Object.values(MODELS.GROQ).includes(model)) {
+      defaultGroqModel = model;
+      console.log(`Default Groq model set to: ${model}`);
+    } else {
+      throw new Error(`Invalid Groq model: ${model}`);
+    }
   } else {
     throw new Error(`Invalid provider: ${provider}`);
   }
@@ -105,6 +122,9 @@ function getAvailableModels() {
   if (currentProvider === PROVIDERS.OPENROUTER) {
     return MODELS.OPENROUTER;
   }
+  if (currentProvider === PROVIDERS.GROQ) {
+    return MODELS.GROQ;
+  }
   return MODELS.OPENAI;
 }
 
@@ -118,6 +138,9 @@ function getCurrentModel() {
   }
   if (currentProvider === PROVIDERS.OPENROUTER) {
     return defaultOpenRouterModel;
+  }
+  if (currentProvider === PROVIDERS.GROQ) {
+    return defaultGroqModel;
   }
   return defaultOpenAIModel;
 }
@@ -158,6 +181,30 @@ async function generateText(prompt, options = {}) {
       return response.data.choices[0].message.content.trim();
     } catch (error) {
       console.error("Error calling OpenRouter API:", error);
+      throw error;
+    }
+  } else if (provider === PROVIDERS.GROQ) {
+    try {
+      const key = options.apiKey || groqApiKey;
+      const response = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          model: options.model || defaultGroqModel,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: options.maxTokens || 150,
+          temperature: options.temperature || 0.7,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      return response.data.choices[0].message.content.trim();
+    } catch (error) {
+      console.error("Error calling Groq API:", error);
       throw error;
     }
   } else {
@@ -225,6 +272,30 @@ async function chatCompletion(messages, options = {}) {
       console.error("Error calling OpenRouter API:", error);
       throw error;
     }
+  } else if (provider === PROVIDERS.GROQ) {
+    try {
+      const key = options.apiKey || groqApiKey;
+      const response = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          model: options.model || defaultGroqModel,
+          messages: messages,
+          max_tokens: options.maxTokens || 150,
+          temperature: options.temperature || 0.7,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      return response.data.choices[0].message.content.trim();
+    } catch (error) {
+      console.error("Error calling Groq API:", error);
+      throw error;
+    }
   } else {
     try {
       const key = options.apiKey || openAIApiKey;
@@ -288,4 +359,13 @@ export function setOpenRouterApiKey(apiKey) {
 
 export function isOpenRouterConfigured() {
   return openRouterConfigured;
+}
+
+export function setGroqApiKey(apiKey) {
+  groqApiKey = apiKey;
+  groqConfigured = Boolean(apiKey && String(apiKey).trim().length > 0);
+}
+
+export function isGroqConfigured() {
+  return groqConfigured;
 }

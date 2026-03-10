@@ -33,6 +33,9 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
     if (modelName.includes('gpt') || modelName.includes('openai')) {
       return 'openai';
     }
+    if (modelName.includes('llama') || modelName.includes('mixtral')) {
+      return 'groq';
+    }
     return currentProvider;
   };
 
@@ -108,6 +111,8 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
       prefix = '🌀 ';
     } else if (provider === 'openrouter') {
       prefix = '🌐 ';
+    } else if (provider === 'groq') {
+      prefix = '⚡ ';
     }
     
     // Return the full model name with appropriate prefix
@@ -256,7 +261,11 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
               title="Select LLM Model"
             >
               <span className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${currentProvider === 'gemini' ? 'bg-blue-500' : 'bg-green-500'}`}></span>
+                <span className={`w-3 h-3 rounded-full ${
+                  currentProvider === 'gemini' ? 'bg-blue-500' : 
+                  currentProvider === 'groq' ? 'bg-orange-500' : 
+                  'bg-green-500'
+                }`}></span>
                 <span>{currentModel}</span>
               </span>
               <ChevronDown size={14} className="opacity-70" />
@@ -269,7 +278,9 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
                     ? 'Gemini Models'
                     : currentProvider === 'openrouter'
                       ? 'OpenRouter Models'
-                      : 'OpenAI Models'}
+                      : currentProvider === 'groq'
+                        ? 'Groq Models'
+                        : 'OpenAI Models'}
                 </div>
                 {providerModels.map((model) => (
                   <div 
@@ -282,7 +293,11 @@ const Header = ({ mode, setMode, onOpenKeys }) => {
                     onClick={() => handleModelChange(model)}
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full ${currentProvider === 'gemini' ? 'bg-blue-500' : 'bg-green-500'}`}></span>
+                      <span className={`w-3 h-3 rounded-full ${
+                        currentProvider === 'gemini' ? 'bg-blue-500' : 
+                        currentProvider === 'groq' ? 'bg-orange-500' : 
+                        'bg-green-500'
+                      }`}></span>
                       {model}
                     </div>
                     {model === currentModel && <span className="absolute right-3">✓</span>}

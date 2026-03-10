@@ -15,7 +15,6 @@ import ContentManager from "./contentManager.js";
 import { setupContentRoutes } from "./contentAPI.js";
 import { setupVerificationRoutes } from "./verificationAPI.js";
 
-
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,7 +43,6 @@ const ensureDirectoryExistence = (filePath) => {
   ensureDirectoryExistence(dirname);
   fs.mkdirSync(dirname);
 };
-
 
 app.post("/save-quotes", (req, res) => {
   const quotes = req.body; // Assuming quotes is an array
@@ -76,7 +74,9 @@ let conversationManager, conversationMemory;
 app.post("/api/start-conversation", async (req, res) => {
   try {
     const config = req.body;
-    console.log(`Starting conversation with maxTurns: ${config.maxTurns}, completeConversation: ${config.completeConversation}`);
+    console.log(
+      `Starting conversation with maxTurns: ${config.maxTurns}, completeConversation: ${config.completeConversation}`,
+    );
 
     // Track if response has been ended
     let responseEnded = false;
@@ -108,36 +108,52 @@ app.post("/api/start-conversation", async (req, res) => {
     if (!config.shouldLoadPreviousConversationManager) {
       conversationMemory = new ConversationMemory();
     }
-    conversationManager = new ConversationManager(config.maxTurns || 6, conversationMemory);
+    conversationManager = new ConversationManager(
+      config.maxTurns || 6,
+      conversationMemory,
+    );
     // Attach per-request LLM options to the manager for downstream usage
     conversationManager.llmOptions = {
-      provider: req.headers['x-llm-provider'] || undefined,
-      apiKey: req.headers['x-llm-key'] || undefined
+      provider: req.headers["x-llm-provider"] || undefined,
+      apiKey: req.headers["x-llm-key"] || undefined,
     };
-    console.log(`ConversationManager created with ${config.maxTurns || 6} maxTurns with conversationMemory`, conversationMemory);
+    console.log(
+      `ConversationManager created with ${config.maxTurns || 6} maxTurns with conversationMemory`,
+      conversationMemory,
+    );
 
     conversationManager.onMessageGenerated = (message) => {
-      console.log(`Message generated from ${message.sender}: ${message.message?.substring(0, 30)}...`);
-      
+      console.log(
+        `Message generated from ${message.sender}: ${message.message?.substring(0, 30)}...`,
+      );
+
       // If message has needsApproval flag, log it clearly for debugging
       if (message.needsApproval) {
-        console.log(`APPROVAL REQUIRED: Message from ${message.sender} needs approval - isDerailing: ${message.isDerailing}`);
+        console.log(
+          `APPROVAL REQUIRED: Message from ${message.sender} needs approval - isDerailing: ${message.isDerailing}`,
+        );
       }
-      
+
       // If conversation is paused and this is not a system message or derailing message,
       // don't send the message to the client
-      if ((conversationManager.isWaitingForApproval || conversationManager.conversationPaused) && 
-          !message.isSystemMessage && !message.isDerailing) {
-        console.log('Message generation skipped - conversation is paused');
+      if (
+        (conversationManager.isWaitingForApproval ||
+          conversationManager.conversationPaused) &&
+        !message.isSystemMessage &&
+        !message.isDerailing
+      ) {
+        console.log("Message generation skipped - conversation is paused");
         return;
       }
-      
+
       safeWrite(JSON.stringify({ type: "message", message }) + "\n");
     };
 
     conversationManager.onHumanInputRequired = (speaker) => {
       console.log(`Human input required from: ${speaker}`);
-      safeWrite(JSON.stringify({ type: "human_input_required", speaker }) + "\n");
+      safeWrite(
+        JSON.stringify({ type: "human_input_required", speaker }) + "\n",
+      );
     };
 
     // Add a callback for when the conversation is complete
@@ -145,15 +161,24 @@ app.post("/api/start-conversation", async (req, res) => {
       // Update the conversation memory when conversation is complete
       if (conversationManager && conversationMemory) {
         console.log("Conversation complete, updating conversation memory");
-        conversationMemory.conversationHistory = [...conversationManager.conversation];
+        conversationMemory.conversationHistory = [
+          ...conversationManager.conversation,
+        ];
       }
-      
+
       // Only send completion signal if conversation is not paused or waiting for approval
-      if (!conversationManager.isWaitingForApproval && !conversationManager.conversationPaused) {
+      if (
+        !conversationManager.isWaitingForApproval &&
+        !conversationManager.conversationPaused
+      ) {
         console.log("Conversation complete, sending completion signal");
-        safeWrite(JSON.stringify({ type: "completion", status: "done" }) + "\n");
+        safeWrite(
+          JSON.stringify({ type: "completion", status: "done" }) + "\n",
+        );
       } else {
-        console.log("Conversation complete but paused - holding completion signal");
+        console.log(
+          "Conversation complete but paused - holding completion signal",
+        );
       }
     };
 
@@ -161,9 +186,15 @@ app.post("/api/start-conversation", async (req, res) => {
 
     // After runConversation is complete, if completeConversation was requested,
     // ensure we signal completion if it wasn't already signaled AND conversation isn't paused
-    if (config.completeConversation && !conversationManager.isWaitingForApproval && !conversationManager.conversationPaused) {
+    if (
+      config.completeConversation &&
+      !conversationManager.isWaitingForApproval &&
+      !conversationManager.conversationPaused
+    ) {
       console.log("Conversation processing finished");
-      safeWrite(JSON.stringify({ type: "completion", status: "finished" }) + "\n");
+      safeWrite(
+        JSON.stringify({ type: "completion", status: "finished" }) + "\n",
+      );
     }
     safeEnd();
   } catch (error) {
@@ -231,7 +262,6 @@ app.post("/api/generate-audio", async (req, res) => {
   }
 });
 
-
 // Update the runConversation function in your server.js file
 async function runConversation(config) {
   console.log("running conversation with config:", config);
@@ -243,33 +273,41 @@ async function runConversation(config) {
 
   // Set conversation mode settings
   if (config.conversationMode) {
-    console.log(`DEBUG - Setting conversation mode to: ${config.conversationMode}`);
-    
+    console.log(
+      `DEBUG - Setting conversation mode to: ${config.conversationMode}`,
+    );
+
     switch (config.conversationMode) {
-      case 'human-control':
+      case "human-control":
         conversationManager.requireImpromptuApproval = true;
         conversationManager.autoApproveImpromptu = false;
         conversationManager.derailingEnabled = true;
-        console.log(`DEBUG - human-control mode: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`);
+        console.log(
+          `DEBUG - human-control mode: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`,
+        );
         break;
-        
-      case 'autonomous':
+
+      case "autonomous":
         conversationManager.requireImpromptuApproval = false;
         conversationManager.autoApproveImpromptu = true;
         conversationManager.derailingEnabled = true;
-        console.log(`DEBUG - autonomous mode: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`);
+        console.log(
+          `DEBUG - autonomous mode: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`,
+        );
         break;
-        
-      case 'reactive':
+
+      case "reactive":
         conversationManager.requireImpromptuApproval = false;
         conversationManager.autoApproveImpromptu = false;
         conversationManager.derailingEnabled = false;
         conversationManager.derailMode = null;
-        console.log(`DEBUG - reactive mode: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`);
-        
+        console.log(
+          `DEBUG - reactive mode: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`,
+        );
+
         // Also disable any existing derailer settings for all agents
         if (conversationManager.agents) {
-          Object.values(conversationManager.agents).forEach(agent => {
+          Object.values(conversationManager.agents).forEach((agent) => {
             agent.isDerailer = false;
             agent.derailThreshold = 0;
           });
@@ -295,7 +333,9 @@ async function runConversation(config) {
   });
 
   // Set the interaction pattern
-  conversationManager.setInteractionPattern(config.interactionPattern || "neutral");
+  conversationManager.setInteractionPattern(
+    config.interactionPattern || "neutral",
+  );
 
   // Add interruption rules
   if (config.interruptionRules && Array.isArray(config.interruptionRules)) {
@@ -323,46 +363,63 @@ async function runConversation(config) {
   }
 
   // Handle party mode configuration if present
-  if (config.partyMode && config.partyCommands && Array.isArray(config.partyCommands)) {
+  if (
+    config.partyMode &&
+    config.partyCommands &&
+    Array.isArray(config.partyCommands)
+  ) {
     console.log("Setting up party mode with commands:", config.partyCommands);
-    
+
     // Process each party command in sequence
     for (const cmd of config.partyCommands) {
       switch (cmd.command) {
-        case 'createParty':
+        case "createParty":
           // Create a party with the specified members and configuration
           conversationManager.createParty(
             cmd.partyName,
             cmd.members,
             cmd.config,
-            cmd.config.partyDescription
+            cmd.config.partyDescription,
           );
-          console.log(`Created party "${cmd.partyName}" with ${cmd.members.length} members`);
+          console.log(
+            `Created party "${cmd.partyName}" with ${cmd.members.length} members`,
+          );
           break;
-          
-        case 'enablePartyMode':
+
+        case "enablePartyMode":
           // Enable party mode with the specified turn-taking mode
           conversationManager.enablePartyMode(cmd.turnMode);
           console.log(`Enabled party mode with turn mode: ${cmd.turnMode}`);
           break;
-          
-        case 'setPartyRepresentative':
+
+        case "setPartyRepresentative":
           // Set a representative for a specific party
           if (cmd.partyName && cmd.representative) {
-            conversationManager.setPartyRepresentative(cmd.partyName, cmd.representative);
-            console.log(`Set representative "${cmd.representative}" for party "${cmd.partyName}"`);
+            conversationManager.setPartyRepresentative(
+              cmd.partyName,
+              cmd.representative,
+            );
+            console.log(
+              `Set representative "${cmd.representative}" for party "${cmd.partyName}"`,
+            );
           }
           break;
-          
-        case 'setPartySpeakingMode':
+
+        case "setPartySpeakingMode":
           // Set speaking mode for a specific party
           if (cmd.partyName && cmd.mode) {
-            conversationManager.setPartySpeakingMode(cmd.partyName, cmd.mode, cmd.options);
-            console.log(`Set speaking mode "${cmd.mode}" for party "${cmd.partyName}"`);
+            conversationManager.setPartySpeakingMode(
+              cmd.partyName,
+              cmd.mode,
+              cmd.options,
+            );
+            console.log(
+              `Set speaking mode "${cmd.mode}" for party "${cmd.partyName}"`,
+            );
           }
           break;
-          
-        case 'setAsDerailer':
+
+        case "setAsDerailer":
           // Set an agent as a derailer with specified configuration
           if (cmd.agentName && cmd.config) {
             const agent = conversationManager.getAgentByName(cmd.agentName);
@@ -371,15 +428,19 @@ async function runConversation(config) {
                 mode: cmd.config.mode || "random",
                 threshold: cmd.config.threshold || 0.5,
                 minTurns: cmd.config.minTurns || 3,
-                maxTurns: cmd.config.maxTurns || 6
+                maxTurns: cmd.config.maxTurns || 6,
               });
-              console.log(`Set agent "${cmd.agentName}" as derailer with mode: ${cmd.config.mode}, threshold: ${cmd.config.threshold}`);
+              console.log(
+                `Set agent "${cmd.agentName}" as derailer with mode: ${cmd.config.mode}, threshold: ${cmd.config.threshold}`,
+              );
             } else {
-              console.warn(`Agent "${cmd.agentName}" not found for setAsDerailer command`);
+              console.warn(
+                `Agent "${cmd.agentName}" not found for setAsDerailer command`,
+              );
             }
           }
           break;
-          
+
         default:
           console.warn(`Unknown party command: ${cmd.command}`);
       }
@@ -388,12 +449,15 @@ async function runConversation(config) {
 
   // Handle derailer commands if present
   if (config.derailerCommands && Array.isArray(config.derailerCommands)) {
-    console.log("Setting up derailer mode with commands:", config.derailerCommands);
-    
+    console.log(
+      "Setting up derailer mode with commands:",
+      config.derailerCommands,
+    );
+
     // Process each derailer command in sequence
     for (const cmd of config.derailerCommands) {
       switch (cmd.command) {
-        case 'setAsDerailer':
+        case "setAsDerailer":
           // Set an agent as a derailer with specified configuration
           if (cmd.agentName && cmd.config) {
             const agent = conversationManager.getAgentByName(cmd.agentName);
@@ -402,15 +466,19 @@ async function runConversation(config) {
                 mode: cmd.config.mode || "random",
                 threshold: cmd.config.threshold || 0.5,
                 minTurns: cmd.config.minTurns || 3,
-                maxTurns: cmd.config.maxTurns || 6
+                maxTurns: cmd.config.maxTurns || 6,
               });
-              console.log(`Set agent "${cmd.agentName}" as derailer with mode: ${cmd.config.mode}, threshold: ${cmd.config.threshold}`);
+              console.log(
+                `Set agent "${cmd.agentName}" as derailer with mode: ${cmd.config.mode}, threshold: ${cmd.config.threshold}`,
+              );
             } else {
-              console.warn(`Agent "${cmd.agentName}" not found for setAsDerailer command`);
+              console.warn(
+                `Agent "${cmd.agentName}" not found for setAsDerailer command`,
+              );
             }
           }
           break;
-          
+
         default:
           console.warn(`Unknown derailer command: ${cmd.command}`);
       }
@@ -420,16 +488,16 @@ async function runConversation(config) {
   // Handle content commands if present
   if (config.contentCommands && Array.isArray(config.contentCommands)) {
     console.log("Setting up content with commands:", config.contentCommands);
-    
+
     // Ensure the ContentManager is initialized
     if (!conversationManager.contentManager) {
       conversationManager.contentManager = new ContentManager();
     }
-    
+
     // Process each content command in sequence
     for (const cmd of config.contentCommands) {
       switch (cmd.command) {
-        case 'initializeContent':
+        case "initializeContent":
           try {
             // Load the PDF content
             const contentId = await conversationManager.initializeContentMode(
@@ -437,33 +505,44 @@ async function runConversation(config) {
               cmd.owners || null,
               cmd.isParty || false,
               cmd.presenter || null,
-              cmd.presenterIsParty || false
+              cmd.presenterIsParty || false,
             );
-            
-            console.log(`Initialized content "${cmd.filename}" with ID: ${contentId}`);
-            console.log(`Content ownership: ${cmd.owners ? (cmd.isParty ? 'Party-owned' : 'Agent-owned') : 'Public'}`);
-            console.log(`Presenter: ${cmd.presenter ? `${cmd.presenter} (${cmd.presenterIsParty ? 'party' : 'agent'})` : 'None'}`);
-            
+
+            console.log(
+              `Initialized content "${cmd.filename}" with ID: ${contentId}`,
+            );
+            console.log(
+              `Content ownership: ${cmd.owners ? (cmd.isParty ? "Party-owned" : "Agent-owned") : "Public"}`,
+            );
+            console.log(
+              `Presenter: ${cmd.presenter ? `${cmd.presenter} (${cmd.presenterIsParty ? "party" : "agent"})` : "None"}`,
+            );
           } catch (error) {
-            console.error(`Error initializing content "${cmd.filename}":`, error);
+            console.error(
+              `Error initializing content "${cmd.filename}":`,
+              error,
+            );
           }
           break;
-          
-        case 'setContentAsPublic':
+
+        case "setContentAsPublic":
           if (cmd.contentId) {
             try {
               conversationManager.contentManager.setContentAsPublic(
                 cmd.contentId,
                 cmd.presenter || null,
-                cmd.presenterIsParty || false
+                cmd.presenterIsParty || false,
               );
               console.log(`Set content ${cmd.contentId} as public`);
             } catch (error) {
-              console.error(`Error setting content ${cmd.contentId} as public:`, error);
+              console.error(
+                `Error setting content ${cmd.contentId} as public:`,
+                error,
+              );
             }
           }
           break;
-          
+
         default:
           console.warn(`Unknown content command: ${cmd.command}`);
       }
@@ -475,109 +554,130 @@ async function runConversation(config) {
 }
 
 // Add new endpoint for generating scene descriptions
-app.post('/api/generate-scene-description', async (req, res) => {
+app.post("/api/generate-scene-description", async (req, res) => {
   try {
     const { sceneName, speakers, partyInfo } = req.body;
-    
+
     if (!sceneName) {
-      return res.status(400).json({ error: 'Missing scene name' });
+      return res.status(400).json({ error: "Missing scene name" });
     }
 
     // Extract speaker names if available
-    const speakerNames = speakers && Array.isArray(speakers) 
-      ? speakers.map(s => s.name).join(', ')
-      : null;
-    
+    const speakerNames =
+      speakers && Array.isArray(speakers)
+        ? speakers.map((s) => s.name).join(", ")
+        : null;
+
     // Format party information for the prompt if available
-    let partyContext = '';
+    let partyContext = "";
     if (partyInfo) {
-      if (partyInfo.parties && Array.isArray(partyInfo.parties) && partyInfo.parties.length > 0) {
-        const partyDescriptions = partyInfo.parties.map(party => 
-          `"${party.name}" party consists of ${party.members.join(', ')}`
+      if (
+        partyInfo.parties &&
+        Array.isArray(partyInfo.parties) &&
+        partyInfo.parties.length > 0
+      ) {
+        const partyDescriptions = partyInfo.parties.map(
+          (party) =>
+            `"${party.name}" party consists of ${party.members.join(", ")}`,
         );
-        partyContext += `\nThe participants are organized in parties: ${partyDescriptions.join('. ')}.`;
+        partyContext += `\nThe participants are organized in parties: ${partyDescriptions.join(". ")}.`;
       }
-      
+
       if (partyInfo.moderatorParty) {
         partyContext += `\nThe "${partyInfo.moderatorParty}" party acts as the moderator of the conversation.`;
       }
-      
+
       if (partyInfo.turnMode) {
         partyContext += `\nParty turn-taking happens in "${partyInfo.turnMode}" mode.`;
       }
     }
-    
+
     // Prepare prompt for LLM
     const prompt = `Generate a concise description for a conversation scene named "${sceneName}".
-    ${speakerNames ? `The scene includes the following participants: ${speakerNames}.` : ''}${partyContext}
+    ${speakerNames ? `The scene includes the following participants: ${speakerNames}.` : ""}${partyContext}
     
     The description should:
     1. Be one sentence long
     2. Capture the essence of what the scene might be about based on its name
     3. Be suitable as context for a natural conversation
     4. Not include phrases like "In this scene" or "This scene is about"
-    ${partyContext ? '5. Consider the party dynamics mentioned above' : ''}
+    ${partyContext ? "5. Consider the party dynamics mentioned above" : ""}
     
     Provide only the description text without any additional explanations or formatting.`;
 
     // Get response from LLM
-    const description = await llmProvider.generateText(prompt, { maxTokens: 120, temperature: 0.7 });
-    
-    console.log(`Generated scene description for "${sceneName}": ${description}`);
+    const description = await llmProvider.generateText(prompt, {
+      maxTokens: 120,
+      temperature: 0.7,
+    });
+
+    console.log(
+      `Generated scene description for "${sceneName}": ${description}`,
+    );
 
     res.json({ description: description.trim() });
   } catch (error) {
-    console.error('Error generating scene description:', error);
-    res.status(500).json({ error: 'Failed to generate scene description' });
+    console.error("Error generating scene description:", error);
+    res.status(500).json({ error: "Failed to generate scene description" });
   }
 });
 
 // Add new endpoint for generating conversation prompts
-app.post('/api/generate-conversation-prompt', async (req, res) => {
+app.post("/api/generate-conversation-prompt", async (req, res) => {
   try {
-    const { generalContext, sceneDescription, subTopic, speakers, interactionPattern } = req.body;
-    
+    const {
+      generalContext,
+      sceneDescription,
+      subTopic,
+      speakers,
+      interactionPattern,
+    } = req.body;
+
     if (!sceneDescription) {
-      return res.status(400).json({ error: 'Missing scene description' });
+      return res.status(400).json({ error: "Missing scene description" });
     }
 
     // Extract speaker names if available
-    const speakerNames = speakers && Array.isArray(speakers) 
-      ? speakers.map(s => s.name).join(', ')
-      : null;
-    
+    const speakerNames =
+      speakers && Array.isArray(speakers)
+        ? speakers.map((s) => s.name).join(", ")
+        : null;
+
     // Prepare prompt for LLM
     const prompt = `Create a situational context for a conversation using the following format:
-    "${speakerNames || 'The participants'} is in a conversation where ${sceneDescription}. They are talking about ${subTopic || 'various topics related to the scene'}."
+    "${speakerNames || "The participants"} is in a conversation where ${sceneDescription}. They are talking about ${subTopic || "various topics related to the scene"}."
 
     The context should:
-    1. Naturally incorporate all the provided speakers: ${speakerNames || 'Not specified'}
+    1. Naturally incorporate all the provided speakers: ${speakerNames || "Not specified"}
     2. Do not add any additional information about the topic, or participants
-    3. Reference the interaction style (${interactionPattern || 'neutral'}) through the tone
+    3. Reference the interaction style (${interactionPattern || "neutral"}) through the tone
     4. Be 1-2 sentences long and feel natural
     5. Not include phrases like "In this scene" or "This scene is about"
 
     Provide only the context text without any additional explanations or formatting.`;
 
     // Get response from LLM
-    const conversationPrompt = await llmProvider.generateText(prompt, { maxTokens: 250, temperature: 0.7 });
-    
+    const conversationPrompt = await llmProvider.generateText(prompt, {
+      maxTokens: 250,
+      temperature: 0.7,
+    });
+
     console.log(`Generated conversation prompt: ${conversationPrompt}`);
 
     res.json({ prompt: conversationPrompt.trim() });
   } catch (error) {
-    console.error('Error generating conversation prompt:', error);
-    res.status(500).json({ error: 'Failed to generate conversation prompt' });
+    console.error("Error generating conversation prompt:", error);
+    res.status(500).json({ error: "Failed to generate conversation prompt" });
   }
 });
 
 // Add new endpoint for deleting audio files
-app.post('/api/delete-audio-files', async (req, res) => {
+app.post("/api/delete-audio-files", async (req, res) => {
   try {
     const { segments } = req.body;
-    
+
     if (!segments || !Array.isArray(segments)) {
-      return res.status(400).json({ error: 'Invalid segments data' });
+      return res.status(400).json({ error: "Invalid segments data" });
     }
 
     const deletedFiles = [];
@@ -587,9 +687,11 @@ app.post('/api/delete-audio-files', async (req, res) => {
       if (segment.audioUrl) {
         try {
           // Extract filename from URL
-          const filename = decodeURIComponent(segment.audioUrl.split('/').pop());
-          const filePath = path.join(__dirname, 'audio', filename);
-          
+          const filename = decodeURIComponent(
+            segment.audioUrl.split("/").pop(),
+          );
+          const filePath = path.join(__dirname, "audio", filename);
+
           // Check if file exists before trying to delete
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
@@ -608,36 +710,41 @@ app.post('/api/delete-audio-files', async (req, res) => {
     res.json({
       success: true,
       deletedFiles,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error('Error in delete-audio-files:', error);
-    res.status(500).json({ error: 'Failed to delete audio files' });
+    console.error("Error in delete-audio-files:", error);
+    res.status(500).json({ error: "Failed to delete audio files" });
   }
 });
 
 // Add impromptu phase approval endpoints
-app.post('/api/impromptu/approve', async (req, res) => {
+app.post("/api/impromptu/approve", async (req, res) => {
   try {
     if (!conversationManager) {
-      return res.status(404).json({ error: 'No active conversation manager' });
+      return res.status(404).json({ error: "No active conversation manager" });
     }
 
-    console.log('Handling impromptu phase approval');
-    
+    console.log("Handling impromptu phase approval");
+
     // Get edited content from request if available
     const { editedContent } = req.body;
     if (editedContent) {
-      console.log('Received edited content for impromptu message:', editedContent.substring(0, 30) + '...');
-      
+      console.log(
+        "Received edited content for impromptu message:",
+        editedContent.substring(0, 30) + "...",
+      );
+
       // Update the pending message content if we have edited content
       if (conversationManager.pendingImpromptuPhase?.response) {
-        conversationManager.pendingImpromptuPhase.response.content = editedContent;
-        conversationManager.pendingImpromptuPhase.response.message = editedContent;
-        console.log('Updated pending impromptu message with edited content');
+        conversationManager.pendingImpromptuPhase.response.content =
+          editedContent;
+        conversationManager.pendingImpromptuPhase.response.message =
+          editedContent;
+        console.log("Updated pending impromptu message with edited content");
       }
     }
-    
+
     // Set up streaming response
     res.writeHead(200, {
       "Content-Type": "application/json",
@@ -665,107 +772,137 @@ app.post('/api/impromptu/approve', async (req, res) => {
         console.warn("Attempted to end an already ended response");
       }
     };
-    
+
     // Store the pending derailing message before approval
     const pendingMessage = conversationManager.pendingImpromptuPhase?.response;
-    const derailerAgent = conversationManager.pendingImpromptuPhase?.derailerAgent;
+    const derailerAgent =
+      conversationManager.pendingImpromptuPhase?.derailerAgent;
     const derailMode = conversationManager.pendingImpromptuPhase?.derailMode;
     const turns = conversationManager.pendingImpromptuPhase?.turns;
-    
+
     // Override the message handler to control the order of messages
     const originalMessageHandler = conversationManager.onMessageGenerated;
     let systemMessageSent = false;
     let derailingMessageSent = false;
-    
+
     conversationManager.onMessageGenerated = (message) => {
       // Skip all message generation if conversation is paused
-      if (!message.isSystemMessage && 
-          (conversationManager.isWaitingForApproval || conversationManager.conversationPaused)) {
-        console.log('Message generation skipped - conversation is paused');
+      if (
+        !message.isSystemMessage &&
+        (conversationManager.isWaitingForApproval ||
+          conversationManager.conversationPaused)
+      ) {
+        console.log("Message generation skipped - conversation is paused");
         return;
       }
-      
+
       // If this is an impromptu phase system message, send it first
-      if (message.isSystemMessage && message.impromptuPhase && message.isImpromptuPhaseStart) {
+      if (
+        message.isSystemMessage &&
+        message.impromptuPhase &&
+        message.isImpromptuPhaseStart
+      ) {
         systemMessageSent = true;
         safeWrite(JSON.stringify({ type: "message", message }) + "\n");
-        console.log('Streamed system impromptu start message to client');
+        console.log("Streamed system impromptu start message to client");
         return;
       }
-      
+
       // If this is a derailing message and we've sent the system message, send it next
-      if (message.sender === derailerAgent?.name && message.isDerailing && systemMessageSent && !derailingMessageSent) {
+      if (
+        message.sender === derailerAgent?.name &&
+        message.isDerailing &&
+        systemMessageSent &&
+        !derailingMessageSent
+      ) {
         derailingMessageSent = true;
-        
+
         // Check if we require impromptu approval (human-control mode)
         if (conversationManager.requireImpromptuApproval) {
           // For human-control mode, keep the needsApproval flag
           const pendingMessage = {
             ...message,
             needsApproval: true,
-            isApproved: false
+            isApproved: false,
           };
-          safeWrite(JSON.stringify({ type: "message", message: pendingMessage }) + "\n");
-          console.log('Streamed pending derailing message to client (requires approval)');
+          safeWrite(
+            JSON.stringify({ type: "message", message: pendingMessage }) + "\n",
+          );
+          console.log(
+            "Streamed pending derailing message to client (requires approval)",
+          );
         } else {
           // For autonomous mode, mark as approved
           const approvedMessage = {
             ...message,
             needsApproval: false,
-            isApproved: true
+            isApproved: true,
           };
-          safeWrite(JSON.stringify({ type: "message", message: approvedMessage }) + "\n");
-          console.log('Streamed approved derailing message to client');
+          safeWrite(
+            JSON.stringify({ type: "message", message: approvedMessage }) +
+              "\n",
+          );
+          console.log("Streamed approved derailing message to client");
         }
         return;
       }
-      
+
       // For other messages, just stream them normally
       safeWrite(JSON.stringify({ type: "message", message }) + "\n");
     };
-    
+
     // Handle approval
     await conversationManager.handleImpromptuPhaseApproval(true);
-    
+
     // Send initial success response
     safeWrite(JSON.stringify({ type: "status", status: "approved" }) + "\n");
-    
+
     // Send a special message to reset the client approval state
-    safeWrite(JSON.stringify({ 
-      type: "reset_approval_state", 
-      status: "approval_handled"
-    }) + "\n");
-    
+    safeWrite(
+      JSON.stringify({
+        type: "reset_approval_state",
+        status: "approval_handled",
+      }) + "\n",
+    );
+
     // Continue the conversation from current state
     if (conversationManager.currentConfig) {
       // Check if we have the approved message and set it as the last speaker
-      const lastSpeaker = conversationManager.impromptuDerailer || 
-                          (pendingMessage && pendingMessage.sender) || 
-                          (derailerAgent && derailerAgent.name);
-      
-      console.log(`Continuing impromptu phase with last speaker: ${lastSpeaker}`);
-      
+      const lastSpeaker =
+        conversationManager.impromptuDerailer ||
+        (pendingMessage && pendingMessage.sender) ||
+        (derailerAgent && derailerAgent.name);
+
+      console.log(
+        `Continuing impromptu phase with last speaker: ${lastSpeaker}`,
+      );
+
       // Continue conversation from the approved derailing message
       await conversationManager.continueConversation(
         conversationManager.currentParticipants,
         lastSpeaker,
         "All",
-        false
+        false,
       );
     } else {
-      console.warn('No current config found in conversation manager');
+      console.warn("No current config found in conversation manager");
     }
-    
+
     // Restore original message handler
     conversationManager.onMessageGenerated = originalMessageHandler;
-    
+
     // Don't send completion signal here - the conversation should continue
-    
+
     safeEnd();
   } catch (error) {
-    console.error('Error handling impromptu phase approval:', error);
+    console.error("Error handling impromptu phase approval:", error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to approve impromptu phase', details: error.message });
+      res
+        .status(500)
+        .json({
+          error: "Failed to approve impromptu phase",
+          details: error.message,
+        });
     } else if (!res.writableEnded) {
       res.write(JSON.stringify({ type: "error", error: error.message }) + "\n");
       res.end();
@@ -773,14 +910,14 @@ app.post('/api/impromptu/approve', async (req, res) => {
   }
 });
 
-app.post('/api/impromptu/reject', async (req, res) => {
+app.post("/api/impromptu/reject", async (req, res) => {
   try {
     if (!conversationManager) {
-      return res.status(404).json({ error: 'No active conversation manager' });
+      return res.status(404).json({ error: "No active conversation manager" });
     }
 
-    console.log('Handling impromptu phase rejection');
-    
+    console.log("Handling impromptu phase rejection");
+
     // Set up streaming response
     res.writeHead(200, {
       "Content-Type": "application/json",
@@ -808,35 +945,41 @@ app.post('/api/impromptu/reject', async (req, res) => {
         console.warn("Attempted to end an already ended response");
       }
     };
-    
+
     // Handle rejection - this will remove the derailing message from the conversation
     // and reset all impromptu phase state
     conversationManager.handleImpromptuPhaseApproval(false);
-    
+
     // Send initial success response
     safeWrite(JSON.stringify({ type: "status", status: "rejected" }) + "\n");
-    
+
     // Send a special message to reset the client approval state
-    safeWrite(JSON.stringify({ 
-      type: "reset_approval_state", 
-      status: "approval_handled"
-    }) + "\n");
-    
+    safeWrite(
+      JSON.stringify({
+        type: "reset_approval_state",
+        status: "approval_handled",
+      }) + "\n",
+    );
+
     // Continue the conversation with the stored config
     if (conversationManager.currentConfig) {
       // Get the last message in the conversation after derailing message was removed
       const lastMessage = conversationManager.getLastMessage();
       const lastSpeaker = lastMessage ? lastMessage.sender : null;
-      
-      console.log(`Continuing normal conversation from last speaker: ${lastSpeaker || 'unknown'}`);
-      
+
+      console.log(
+        `Continuing normal conversation from last speaker: ${lastSpeaker || "unknown"}`,
+      );
+
       // Force a refresh of the conversation memory context
       if (conversationManager.memory) {
-        console.log('Refreshing conversation memory after impromptu rejection');
+        console.log("Refreshing conversation memory after impromptu rejection");
         // Ensure memory state is consistent with the conversation array
-        conversationManager.memory.conversationHistory = [...conversationManager.conversation];
+        conversationManager.memory.conversationHistory = [
+          ...conversationManager.conversation,
+        ];
       }
-      
+
       // Create a modified configuration that includes the current conversation state
       // and ensures we're back in normal mode (not impromptu)
       const config = {
@@ -845,22 +988,26 @@ app.post('/api/impromptu/reject', async (req, res) => {
         lastSpeaker: lastSpeaker,
         completeConversation: true,
         // Add a flag to indicate we're in post-rejection mode
-        isPostRejection: true
+        isPostRejection: true,
       };
 
       // Set up message handler for this continuation
       const originalMessageHandler = conversationManager.onMessageGenerated;
       conversationManager.onMessageGenerated = (message) => {
-        if (!message.isSystemMessage && (conversationManager.isWaitingForApproval || conversationManager.conversationPaused)) {
-          console.log('Message generation skipped - conversation is paused');
+        if (
+          !message.isSystemMessage &&
+          (conversationManager.isWaitingForApproval ||
+            conversationManager.conversationPaused)
+        ) {
+          console.log("Message generation skipped - conversation is paused");
           return;
         }
-        
+
         // Sanitize any derailing/impromptu flags from messages after rejection
         if (message && !message.isSystemMessage) {
           // Create a clean message without impromptu-related flags
           const sanitizedMessage = { ...message };
-          
+
           // Remove impromptu-related flags
           delete sanitizedMessage.isDerailing;
           delete sanitizedMessage.needsApproval;
@@ -868,11 +1015,14 @@ app.post('/api/impromptu/reject', async (req, res) => {
           delete sanitizedMessage.derailMode;
           delete sanitizedMessage.isImpromptuPhaseStart;
           delete sanitizedMessage.isEndingPhase;
-          
-          console.log('Sanitized post-rejection message from impromptu flags');
-          
+
+          console.log("Sanitized post-rejection message from impromptu flags");
+
           // Send the sanitized message instead
-          safeWrite(JSON.stringify({ type: "message", message: sanitizedMessage }) + "\n");
+          safeWrite(
+            JSON.stringify({ type: "message", message: sanitizedMessage }) +
+              "\n",
+          );
         } else {
           safeWrite(JSON.stringify({ type: "message", message }) + "\n");
         }
@@ -880,33 +1030,37 @@ app.post('/api/impromptu/reject', async (req, res) => {
 
       // Double check that impromptu phase is fully disabled before continuing
       if (conversationManager.impromptuPhaseActive) {
-        console.warn('Impromptu phase still active after rejection - forcibly disabling');
+        console.warn(
+          "Impromptu phase still active after rejection - forcibly disabling",
+        );
         conversationManager.impromptuPhaseActive = false;
         conversationManager.impromptuTurnsLeft = 0;
       }
 
       // Disable derailer agents temporarily to prevent immediate re-triggering
       const originalDerailerSettings = conversationManager.agents
-        .filter(agent => agent.isDerailer)
-        .map(agent => ({
+        .filter((agent) => agent.isDerailer)
+        .map((agent) => ({
           name: agent.name,
           isDerailer: true,
-          threshold: agent.derailThreshold
+          threshold: agent.derailThreshold,
         }));
-      
+
       // Temporarily disable all derailers
-      conversationManager.agents.forEach(agent => {
+      conversationManager.agents.forEach((agent) => {
         if (agent.isDerailer) {
-          console.log(`Temporarily disabling derailer functionality for ${agent.name}`);
+          console.log(
+            `Temporarily disabling derailer functionality for ${agent.name}`,
+          );
           agent.isDerailer = false;
         }
       });
 
       // Resume the conversation in normal mode
       await runConversation(config);
-      
+
       // Restore derailer settings after conversation continues
-      originalDerailerSettings.forEach(setting => {
+      originalDerailerSettings.forEach((setting) => {
         const agent = conversationManager.getAgentByName(setting.name);
         if (agent) {
           console.log(`Re-enabling derailer functionality for ${setting.name}`);
@@ -918,16 +1072,21 @@ app.post('/api/impromptu/reject', async (req, res) => {
       // Restore original message handler
       conversationManager.onMessageGenerated = originalMessageHandler;
     } else {
-      console.warn('No current config found in conversation manager');
+      console.warn("No current config found in conversation manager");
     }
-    
+
     // Don't send completion signal here - the conversation should continue
-    
+
     safeEnd();
   } catch (error) {
-    console.error('Error handling impromptu phase rejection:', error);
+    console.error("Error handling impromptu phase rejection:", error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to reject impromptu phase', details: error.message });
+      res
+        .status(500)
+        .json({
+          error: "Failed to reject impromptu phase",
+          details: error.message,
+        });
     } else if (!res.writableEnded) {
       res.write(JSON.stringify({ type: "error", error: error.message }) + "\n");
       res.end();
@@ -936,41 +1095,41 @@ app.post('/api/impromptu/reject', async (req, res) => {
 });
 
 // Add new endpoint for setting conversation mode
-app.post('/api/conversation/mode', (req, res) => {
+app.post("/api/conversation/mode", (req, res) => {
   const mode = req.body.mode;
-  
+
   console.log(`DEBUG - Changing conversation mode to: ${mode}`);
-  
-  if (!mode || !['human-control', 'autonomous', 'reactive'].includes(mode)) {
+
+  if (!mode || !["human-control", "autonomous", "reactive"].includes(mode)) {
     return res.status(400).send({ error: "Invalid conversation mode" });
   }
 
-  if(!conversationManager) {
+  if (!conversationManager) {
     return res.status(400).send({ error: "No conversation manager found" });
   }
 
   try {
     // Update the conversation manager's mode settings
     switch (mode) {
-      case 'human-control':
+      case "human-control":
         conversationManager.requireImpromptuApproval = true;
         conversationManager.autoApproveImpromptu = false;
         conversationManager.derailingEnabled = true;
         break;
-        
-      case 'autonomous':
+
+      case "autonomous":
         conversationManager.requireImpromptuApproval = false;
         conversationManager.autoApproveImpromptu = true;
         conversationManager.derailingEnabled = true;
         break;
-        
-      case 'reactive':
+
+      case "reactive":
         conversationManager.requireImpromptuApproval = false;
         conversationManager.autoApproveImpromptu = false;
         conversationManager.derailingEnabled = false;
         // Also disable derailer settings for agents
         if (conversationManager.agents) {
-          conversationManager.agents.forEach(agent => {
+          conversationManager.agents.forEach((agent) => {
             if (agent.setAsDerailer) {
               agent.setAsDerailer(false);
             }
@@ -978,15 +1137,19 @@ app.post('/api/conversation/mode', (req, res) => {
         }
         break;
     }
-    
-    console.log(`DEBUG - Updated conversation mode to ${mode}: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`);
-    
+
+    console.log(
+      `DEBUG - Updated conversation mode to ${mode}: requireImpromptuApproval=${conversationManager.requireImpromptuApproval}, autoApproveImpromptu=${conversationManager.autoApproveImpromptu}, derailingEnabled=${conversationManager.derailingEnabled}`,
+    );
+
     // If switching to autonomous mode and there's a pending impromptu phase, auto-approve it
-    if (mode === 'autonomous' && conversationManager.pendingImpromptuPhase) {
-      console.log(`DEBUG - Auto-approving pending impromptu phase due to mode change to autonomous`);
+    if (mode === "autonomous" && conversationManager.pendingImpromptuPhase) {
+      console.log(
+        `DEBUG - Auto-approving pending impromptu phase due to mode change to autonomous`,
+      );
       conversationManager.handleImpromptuPhaseApproval(true);
     }
-    
+
     res.send({ status: "success", mode });
   } catch (error) {
     console.error(`Error changing conversation mode:`, error);
@@ -995,92 +1158,108 @@ app.post('/api/conversation/mode', (req, res) => {
 });
 
 // Add endpoint for modifying a message before approval
-app.post('/api/impromptu/edit-message', async (req, res) => {
+app.post("/api/impromptu/edit-message", async (req, res) => {
   try {
     if (!conversationManager) {
-      return res.status(404).json({ error: 'No active conversation manager' });
+      return res.status(404).json({ error: "No active conversation manager" });
     }
 
     const { messageContent } = req.body;
-    
-    console.log('Handling impromptu message edit:', messageContent.substring(0, 30) + '...');
-    
+
+    console.log(
+      "Handling impromptu message edit:",
+      messageContent.substring(0, 30) + "...",
+    );
+
     if (!conversationManager.pendingImpromptuPhase) {
-      return res.status(404).json({ error: 'No pending impromptu phase to edit' });
+      return res
+        .status(404)
+        .json({ error: "No pending impromptu phase to edit" });
     }
 
     // Update the message content in the pending impromptu phase
     if (conversationManager.pendingImpromptuPhase.response) {
       // Update both content and message fields to ensure compatibility
-      conversationManager.pendingImpromptuPhase.response.content = messageContent;
-      conversationManager.pendingImpromptuPhase.response.message = messageContent;
-      
+      conversationManager.pendingImpromptuPhase.response.content =
+        messageContent;
+      conversationManager.pendingImpromptuPhase.response.message =
+        messageContent;
+
       // Also find and update the message in the conversation array if it exists
       if (conversationManager.conversation) {
-        const pendingMsgIndex = conversationManager.conversation.findIndex(msg => 
-          msg.needsApproval === true && msg.isDerailing === true
+        const pendingMsgIndex = conversationManager.conversation.findIndex(
+          (msg) => msg.needsApproval === true && msg.isDerailing === true,
         );
-        
+
         if (pendingMsgIndex !== -1) {
-          conversationManager.conversation[pendingMsgIndex].content = messageContent;
-          conversationManager.conversation[pendingMsgIndex].message = messageContent;
-          console.log('Updated pending message in conversation array');
+          conversationManager.conversation[pendingMsgIndex].content =
+            messageContent;
+          conversationManager.conversation[pendingMsgIndex].message =
+            messageContent;
+          console.log("Updated pending message in conversation array");
         }
       }
-      
-      console.log('Updated pending impromptu message content');
+
+      console.log("Updated pending impromptu message content");
     } else {
-      console.warn('No response object found in pendingImpromptuPhase');
+      console.warn("No response object found in pendingImpromptuPhase");
     }
 
-    res.status(200).json({ success: true, message: 'Message updated successfully' });
-    
+    res
+      .status(200)
+      .json({ success: true, message: "Message updated successfully" });
   } catch (error) {
-    console.error('Error editing impromptu message:', error);
-    res.status(500).json({ error: 'Failed to edit message', details: error.message });
+    console.error("Error editing impromptu message:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to edit message", details: error.message });
   }
 });
 
 // Add new endpoint for regenerating an impromptu message with a specific mode
-app.post('/api/impromptu/regenerate-with-mode', async (req, res) => {
+app.post("/api/impromptu/regenerate-with-mode", async (req, res) => {
   try {
     if (!conversationManager) {
-      return res.status(404).json({ error: 'No active conversation manager' });
+      return res.status(404).json({ error: "No active conversation manager" });
     }
 
     const { mode } = req.body;
     console.log(`Regenerating impromptu message with mode: ${mode}`);
-    
+
     if (!conversationManager.pendingImpromptuPhase) {
-      return res.status(404).json({ error: 'No pending impromptu phase to regenerate' });
+      return res
+        .status(404)
+        .json({ error: "No pending impromptu phase to regenerate" });
     }
-    
+
     // Get the derailer agent
-    const derailerName = conversationManager.pendingImpromptuPhase.derailerAgent.name;
+    const derailerName =
+      conversationManager.pendingImpromptuPhase.derailerAgent.name;
     const derailerAgent = conversationManager.getAgentByName(derailerName);
-    
+
     if (!derailerAgent) {
-      return res.status(404).json({ error: `Could not find derailer agent: ${derailerName}` });
+      return res
+        .status(404)
+        .json({ error: `Could not find derailer agent: ${derailerName}` });
     }
-    
+
     // Use the original derail mode if no new mode is specified
     const derailMode = mode || derailerAgent.derailMode;
-    
+
     // Temporarily set the agent's derail mode to the requested mode
     const originalMode = derailerAgent.derailMode;
     derailerAgent.setDerailMode(derailMode);
-    
+
     // Find the message before the derailing message in the conversation
     const conversation = conversationManager.conversation;
     let lastNonDerailingMessage = null;
-    
+
     // Find the current derailing message index
-    const derailingMessageIndex = conversation.findIndex(msg => 
-      msg.sender === derailerName && 
-      msg.isDerailing && 
-      msg.needsApproval
+    const derailingMessageIndex = conversation.findIndex(
+      (msg) =>
+        msg.sender === derailerName && msg.isDerailing && msg.needsApproval,
     );
-    
+
     if (derailingMessageIndex > 0) {
       // Get the last non-system message before the derailing message
       for (let i = derailingMessageIndex - 1; i >= 0; i--) {
@@ -1090,36 +1269,45 @@ app.post('/api/impromptu/regenerate-with-mode', async (req, res) => {
         }
       }
     }
-    
+
     // Get the content from the last non-derailing message
-    const lastMessageContent = lastNonDerailingMessage ? 
-      (lastNonDerailingMessage.message || lastNonDerailingMessage.content || '') : 
-      '';
-    
-    console.log(`Using context from message by ${lastNonDerailingMessage?.sender}: "${lastMessageContent.substring(0, 50)}..."`);
-    
+    const lastMessageContent = lastNonDerailingMessage
+      ? lastNonDerailingMessage.message || lastNonDerailingMessage.content || ""
+      : "";
+
+    console.log(
+      `Using context from message by ${lastNonDerailingMessage?.sender}: "${lastMessageContent.substring(0, 50)}..."`,
+    );
+
     // Generate a new derailing response with the specified mode
-    console.log(`Generating derailing response in ${derailMode} mode using context: "${lastMessageContent.substring(0, 50)}..."`);
-    
+    console.log(
+      `Generating derailing response in ${derailMode} mode using context: "${lastMessageContent.substring(0, 50)}..."`,
+    );
+
     try {
       // Set up streaming response
       res.writeHead(200, {
         "Content-Type": "application/json",
         "Transfer-Encoding": "chunked",
       });
-      
+
       // Generate the new derailing response
-      const derailResponse = await derailerAgent.generateDerailResponse(lastMessageContent);
-      
+      const derailResponse =
+        await derailerAgent.generateDerailResponse(lastMessageContent);
+
       if (!derailResponse) {
-        throw new Error('Failed to generate derailing response');
+        throw new Error("Failed to generate derailing response");
       }
-      
+
       // Update the pending impromptu phase with the new response
-      if (conversationManager.pendingImpromptuPhase && conversationManager.pendingImpromptuPhase.response) {
+      if (
+        conversationManager.pendingImpromptuPhase &&
+        conversationManager.pendingImpromptuPhase.response
+      ) {
         // Store the original response's metadata
-        const originalResponse = conversationManager.pendingImpromptuPhase.response;
-        
+        const originalResponse =
+          conversationManager.pendingImpromptuPhase.response;
+
         // Create an updated response with the new content but preserving other properties
         const updatedResponse = {
           ...originalResponse,
@@ -1128,23 +1316,27 @@ app.post('/api/impromptu/regenerate-with-mode', async (req, res) => {
           derailMode: derailMode,
           regenerated: true,
           needsApproval: true, // Ensure needsApproval is set for regenerated messages
-          isApproved: false,   // Reset approval state
-          isDerailing: true    // Ensure isDerailing is set
+          isApproved: false, // Reset approval state
+          isDerailing: true, // Ensure isDerailing is set
         };
-        
+
         // Update the response in the pending impromptu phase
         conversationManager.pendingImpromptuPhase.response = updatedResponse;
         conversationManager.pendingImpromptuPhase.derailMode = derailMode;
-        
-        console.log(`Updated pending impromptu phase with new ${derailMode} response: "${derailResponse.fullResponse.substring(0, 50)}..."`);
-        
+
+        console.log(
+          `Updated pending impromptu phase with new ${derailMode} response: "${derailResponse.fullResponse.substring(0, 50)}..."`,
+        );
+
         // Send the updated message to the client
-        res.write(JSON.stringify({
-          type: "regenerated_message",
-          message: updatedResponse,
-          success: true,
-          mode: derailMode
-        }));
+        res.write(
+          JSON.stringify({
+            type: "regenerated_message",
+            message: updatedResponse,
+            success: true,
+            mode: derailMode,
+          }),
+        );
         res.end();
       } else {
         // If there's no existing response, create a new one
@@ -1157,51 +1349,66 @@ app.post('/api/impromptu/regenerate-with-mode', async (req, res) => {
           isApproved: false,
           derailMode: derailMode,
           regenerated: true,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
-        
+
         // Set this as the new response
         if (conversationManager.pendingImpromptuPhase) {
           conversationManager.pendingImpromptuPhase.response = newResponse;
           conversationManager.pendingImpromptuPhase.derailMode = derailMode;
         }
-        
-        console.log(`Created new ${derailMode} response for pending impromptu phase: "${derailResponse.fullResponse.substring(0, 50)}..."`);
-        
+
+        console.log(
+          `Created new ${derailMode} response for pending impromptu phase: "${derailResponse.fullResponse.substring(0, 50)}..."`,
+        );
+
         // Send the new message to the client
-        res.write(JSON.stringify({
-          type: "regenerated_message",
-          message: newResponse,
-          success: true,
-          mode: derailMode
-        }));
+        res.write(
+          JSON.stringify({
+            type: "regenerated_message",
+            message: newResponse,
+            success: true,
+            mode: derailMode,
+          }),
+        );
         res.end();
       }
     } catch (error) {
-      console.error('Error generating derailing response:', error);
-      
+      console.error("Error generating derailing response:", error);
+
       // Restore the original derail mode
       derailerAgent.setDerailMode(originalMode);
-      
+
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to generate derailing response', details: error.message });
+        res
+          .status(500)
+          .json({
+            error: "Failed to generate derailing response",
+            details: error.message,
+          });
       } else {
-        res.write(JSON.stringify({ 
-          type: "error", 
-          error: 'Failed to generate derailing response',
-          details: error.message 
-        }));
+        res.write(
+          JSON.stringify({
+            type: "error",
+            error: "Failed to generate derailing response",
+            details: error.message,
+          }),
+        );
         res.end();
       }
     }
-    
+
     // Restore the original derail mode
     derailerAgent.setDerailMode(originalMode);
-    
   } catch (error) {
-    console.error('Error regenerating impromptu message:', error);
+    console.error("Error regenerating impromptu message:", error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to regenerate message', details: error.message });
+      res
+        .status(500)
+        .json({
+          error: "Failed to regenerate message",
+          details: error.message,
+        });
     } else {
       res.write(JSON.stringify({ type: "error", error: error.message }));
       res.end();
@@ -1214,19 +1421,31 @@ app.listen(port, () => {
 });
 
 // Initialize API keys from environment if provided
-if (process.env.OPENAI_API_KEY && typeof llmProvider.setOpenAIApiKey === 'function') {
+if (
+  process.env.OPENAI_API_KEY &&
+  typeof llmProvider.setOpenAIApiKey === "function"
+) {
   llmProvider.setOpenAIApiKey(process.env.OPENAI_API_KEY);
 }
-if (process.env.OPENROUTER_API_KEY && typeof llmProvider.setOpenRouterApiKey === 'function') {
+if (
+  process.env.OPENROUTER_API_KEY &&
+  typeof llmProvider.setOpenRouterApiKey === "function"
+) {
   llmProvider.setOpenRouterApiKey(process.env.OPENROUTER_API_KEY);
+}
+if (
+  process.env.GROQ_API_KEY &&
+  typeof llmProvider.setGroqApiKey === "function"
+) {
+  llmProvider.setGroqApiKey(process.env.GROQ_API_KEY);
 }
 if (process.env.GEMINI_API_KEY) {
   try {
     // Lazy import to avoid circular deps if any
-    const { setGeminiApiKey } = await import('./providers/geminiAPI.js');
+    const { setGeminiApiKey } = await import("./providers/geminiAPI.js");
     setGeminiApiKey(process.env.GEMINI_API_KEY);
   } catch (e) {
-    console.warn('Failed to initialize GEMINI_API_KEY from env:', e.message);
+    console.warn("Failed to initialize GEMINI_API_KEY from env:", e.message);
   }
 }
 if (process.env.TTS_API_KEY) {
@@ -1234,10 +1453,10 @@ if (process.env.TTS_API_KEY) {
 }
 
 // Initialize provider from environment
-if (process.env.LLM_PROVIDER && typeof llmProvider.setProvider === 'function') {
+if (process.env.LLM_PROVIDER && typeof llmProvider.setProvider === "function") {
   try {
     llmProvider.setProvider(process.env.LLM_PROVIDER.toLowerCase());
   } catch (e) {
-    console.warn('Invalid LLM_PROVIDER in env, using default:', e.message);
+    console.warn("Invalid LLM_PROVIDER in env, using default:", e.message);
   }
 }

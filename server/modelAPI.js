@@ -1,6 +1,6 @@
-import * as llmProvider from './providers/llmProvider.js';
-import { setGeminiApiKey, isGeminiConfigured } from './providers/geminiAPI.js';
-import { setTtsApiKey, isTtsConfigured } from './tts.js';
+import * as llmProvider from "./providers/llmProvider.js";
+import { setGeminiApiKey, isGeminiConfigured } from "./providers/geminiAPI.js";
+import { setTtsApiKey, isTtsConfigured } from "./tts.js";
 
 /**
  * Sets up model-related API routes for the Express app
@@ -16,14 +16,14 @@ export function setupModelRoutes(app) {
         status: "success",
         currentProvider: llmProvider.getProvider(),
         availableModels: llmProvider.getAvailableModels(),
-        currentModel: llmProvider.getCurrentModel()
+        currentModel: llmProvider.getCurrentModel(),
       });
     } catch (error) {
       console.error("Error getting LLM models:", error);
-      res.status(500).json({ 
-        status: "error", 
+      res.status(500).json({
+        status: "error",
         message: "Failed to get LLM models",
-        error: error.message 
+        error: error.message,
       });
     }
   });
@@ -34,44 +34,46 @@ export function setupModelRoutes(app) {
   app.post("/api/update-model", (req, res) => {
     try {
       const { provider, model } = req.body;
-      
+
       if (!provider || !model) {
-        return res.status(400).json({ 
-          status: "error", 
-          message: "Provider and model are required" 
+        return res.status(400).json({
+          status: "error",
+          message: "Provider and model are required",
         });
       }
-      
-      console.log(`Attempting to update model: provider=${provider}, model=${model}`);
-      
+
+      console.log(
+        `Attempting to update model: provider=${provider}, model=${model}`,
+      );
+
       // Update the model for the specified provider
       try {
         llmProvider.setDefaultModel(provider, model);
-        
+
         // Return success response with current settings
-        res.json({ 
-          status: "success", 
+        res.json({
+          status: "success",
           message: `Model updated to ${model} for ${provider}`,
           currentProvider: llmProvider.getProvider(),
           availableModels: llmProvider.getAvailableModels(),
-          currentModel: llmProvider.getCurrentModel()
+          currentModel: llmProvider.getCurrentModel(),
         });
       } catch (modelError) {
         // Handle model validation errors specifically
         console.error(`Error setting model: ${modelError.message}`);
-        res.status(400).json({ 
-          status: "error", 
+        res.status(400).json({
+          status: "error",
           message: modelError.message,
           provider,
-          model
+          model,
         });
       }
     } catch (error) {
       console.error("Error processing update-model request:", error);
-      res.status(500).json({ 
-        status: "error", 
+      res.status(500).json({
+        status: "error",
         message: "Failed to update model",
-        error: error.message 
+        error: error.message,
       });
     }
   });
@@ -84,29 +86,40 @@ export function setupModelRoutes(app) {
     try {
       const { provider, apiKey } = req.body || {};
       if (!provider || !apiKey) {
-        return res.status(400).json({ status: 'error', message: 'provider and apiKey are required' });
+        return res.status(400).json({
+          status: "error",
+          message: "provider and apiKey are required",
+        });
       }
 
-      if (provider === 'openai') {
-        if (typeof llmProvider.setOpenAIApiKey === 'function') {
+      if (provider === "openai") {
+        if (typeof llmProvider.setOpenAIApiKey === "function") {
           llmProvider.setOpenAIApiKey(apiKey);
         }
-      } else if (provider === 'gemini') {
+      } else if (provider === "gemini") {
         setGeminiApiKey(apiKey);
-      } else if (provider === 'openrouter') {
-        if (typeof llmProvider.setOpenRouterApiKey === 'function') {
+      } else if (provider === "openrouter") {
+        if (typeof llmProvider.setOpenRouterApiKey === "function") {
           llmProvider.setOpenRouterApiKey(apiKey);
         }
-      } else if (provider === 'tts') {
+      } else if (provider === "groq") {
+        if (typeof llmProvider.setGroqApiKey === "function") {
+          llmProvider.setGroqApiKey(apiKey);
+        }
+      } else if (provider === "tts") {
         setTtsApiKey(apiKey);
       } else {
-        return res.status(400).json({ status: 'error', message: 'Unsupported provider' });
+        return res
+          .status(400)
+          .json({ status: "error", message: "Unsupported provider" });
       }
 
-      return res.json({ status: 'success' });
+      return res.json({ status: "success" });
     } catch (error) {
-      console.error('Error setting API key:', error);
-      return res.status(500).json({ status: 'error', message: 'Failed to set API key' });
+      console.error("Error setting API key:", error);
+      return res
+        .status(500)
+        .json({ status: "error", message: "Failed to set API key" });
     }
   });
 
@@ -115,20 +128,38 @@ export function setupModelRoutes(app) {
    */
   app.get("/api/llm-status", (req, res) => {
     try {
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
+      res.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
       return res.json({
-        status: 'success',
+        status: "success",
         geminiConfigured: isGeminiConfigured(),
-        openaiConfigured: typeof llmProvider.isOpenAIConfigured === 'function' ? llmProvider.isOpenAIConfigured() : false,
-        openrouterConfigured: typeof llmProvider.isOpenRouterConfigured === 'function' ? llmProvider.isOpenRouterConfigured() : false,
+        openaiConfigured:
+          typeof llmProvider.isOpenAIConfigured === "function"
+            ? llmProvider.isOpenAIConfigured()
+            : false,
+        openrouterConfigured:
+          typeof llmProvider.isOpenRouterConfigured === "function"
+            ? llmProvider.isOpenRouterConfigured()
+            : false,
+        groqConfigured:
+          typeof llmProvider.isGroqConfigured === "function"
+            ? llmProvider.isGroqConfigured()
+            : false,
         ttsConfigured: isTtsConfigured(),
-        currentProvider: typeof llmProvider.getProvider === 'function' ? llmProvider.getProvider() : 'gemini'
+        currentProvider:
+          typeof llmProvider.getProvider === "function"
+            ? llmProvider.getProvider()
+            : "gemini",
       });
     } catch (error) {
-      console.error('Error getting LLM status:', error);
-      return res.status(500).json({ status: 'error', message: 'Failed to get status' });
+      console.error("Error getting LLM status:", error);
+      return res
+        .status(500)
+        .json({ status: "error", message: "Failed to get status" });
     }
   });
 
@@ -139,16 +170,28 @@ export function setupModelRoutes(app) {
   app.post("/api/llm-provider", (req, res) => {
     try {
       const { provider } = req.body || {};
-      if (!provider || !['openai', 'gemini', 'openrouter'].includes(provider)) {
-        return res.status(400).json({ status: 'error', message: 'provider must be "openai", "gemini", or "openrouter"' });
+      if (
+        !provider ||
+        !["openai", "gemini", "openrouter", "groq"].includes(provider)
+      ) {
+        return res.status(400).json({
+          status: "error",
+          message:
+            'provider must be "openai", "gemini", "openrouter", or "groq"',
+        });
       }
-      if (typeof llmProvider.setProvider === 'function') {
+      if (typeof llmProvider.setProvider === "function") {
         llmProvider.setProvider(provider);
       }
-      return res.json({ status: 'success', currentProvider: llmProvider.getProvider() });
+      return res.json({
+        status: "success",
+        currentProvider: llmProvider.getProvider(),
+      });
     } catch (error) {
-      console.error('Error setting provider:', error);
-      return res.status(500).json({ status: 'error', message: 'Failed to set provider' });
+      console.error("Error setting provider:", error);
+      return res
+        .status(500)
+        .json({ status: "error", message: "Failed to set provider" });
     }
   });
-} 
+}
